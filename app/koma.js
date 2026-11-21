@@ -62,8 +62,26 @@ app.get('/api/status', (req, res) => {
 //   "film":    null (jeszcze nieobsługiwany)
 // }
 // Odpowiedź: { status, tekst, model1, model2, model3, metadane }
+// Górny limit czasu na jedno sprawdzenie: zawieszone zapytanie do serwera modeli nie może
+// blokować użytkownika w nieskończoność (w teście jedno zapytanie wisiało 7,5 minuty).
+const MAX_CZAS_SPRAWDZENIA_MS = Number(process.env.KOMA_MAX_CZAS_MS) || 4 * 60 * 1000;
+
 app.post('/api/weryfikuj', jsonZapytanie, async (req, res) => {
-  const wynik = await uruchomPipeline(req.body);
+  let stoper;
+  const limit = new Promise((_, odrzuc) => {
+    stoper = setTimeout(() => {
+      const blad = new Error('Sprawdzanie trwało zbyt długo (serwer modeli jest przeciążony). Spróbuj ponownie za chwilę.');
+      blad.status = 504;
+      blad.publiczny = true;
+      odrzuc(blad);
+    }, MAX_CZAS_SPRAWDZENIA_MS);
+  });
+  let wynik;
+  try {
+    wynik = await Promise.race([uruchomPipeline(req.body), limit]);
+  } finally {
+    clearTimeout(stoper);
+  }
 
   console.log(
     `[KOMA] /api/weryfikuj -> werdykt="${wynik.werdykt_ogolny}" | status=${wynik.status} | twierdzeń=${wynik.metadane.liczba_twierdzen} | dowodów=${wynik.metadane.liczba_dowodow} | czasy: M1=${wynik.model1.czas_ms}ms M2=${wynik.model2.czas_ms}ms M3=${wynik.model3.czas_ms}ms DEM=${wynik.demagog.czas_ms}ms`

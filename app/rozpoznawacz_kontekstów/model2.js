@@ -20,7 +20,7 @@ Twoim jedynym zadaniem jest rozłożenie podanego tekstu na możliwie atomowe tw
 
 ZASADY BEZWZGLĘDNE:
 1. NIE oceniaj prawdziwości twierdzeń i NIE wydawaj werdyktu.
-2. NIE dopowiadaj żadnych faktów, których nie ma w tekście.
+2. NIE dopowiadaj żadnych faktów, których nie ma w tekście. W szczególności NIE dopisuj imion, nazwisk, funkcji, dat ani liczb: jeśli tekst mówi "Nawrocki", pisz "Nawrocki" (nie "Jarosław Nawrocki" ani "Karol Nawrocki"), jeśli nie podaje daty – nie dodawaj daty. Lepiej zostawić niepełne dane niż zgadywać.
 3. SAMODZIELNOŚĆ TWIERDZEŃ (NAJWAŻNIEJSZE): Każde wydzielone twierdzenie ("claim") MUSI być w pełni samodzielne i zawierać swój podmiot, miejsce lub obiekt (np. "Na drodze nr 66 panują utrudnienia drogowe."). NIGDY nie odrywaj miejsca ani obiektu od zdarzenia i NIGDY nie twórz ogólnikowych, bezkontekstowych twierdzeń typu "Panują utrudnienia drogowe.", "Doszło do wypadku.", "Zdarzenie miało miejsce dziś.", bo bez wskazania GDZIE i CZEGO dotyczą są one bezużyteczne i zawsze pozornie prawdziwe. Jeśli proste zdanie opisuje jedno zdarzenie w konkretnym miejscu/czasie (np. "Czy na drodze 66 panują utrudnienia drogowe?"), zwróć je jako JEDNO kompletne twierdzenie ("Na drodze 66 panują utrudnienia drogowe."), zamiast sztucznie rozbijać na osobne zdania o samym fakcie utrudnień i samym miejscu.
 4. Gdy zdanie zawiera kilka odrębnych faktów (np. przyczynę, liczbę ofiar, reakcję służb), rozbij je na osobne twierdzenia, ale w KAŻDYM z nich powtórz pełny kontekst (co, kogo i jakiego miejsca dotyczy) oraz powiąż je polem "related_to".
 5. Zachowuj negacje ("nie potwierdził", "brak dowodów") – nigdy nie odwracaj sensu zdania.

@@ -17,6 +17,30 @@ class PipelineError extends Error {
   }
 }
 
+// Model 2 mimo zasad w prompcie zamienia pytania o fakty na "Pytanie dotyczy tego, czy X" /
+// "Autor tekstu pyta, czy X" i oznacza je jako "non_verifiable" - wtedy werdykt zapadał z góry
+// ("Nie podlega weryfikacji") bez sprawdzania. Tu zamieniamy je z powrotem na twierdzenie X
+// i traktujemy jako fakt. Usuwamy też wstępy "Autor słyszał, że" / "Istnieje twierdzenie, że",
+// które utrudniały wyszukiwanie (typ twierdzenia zostaje bez zmian).
+const WSTEP_PYTANIA = /^\s*(pytanie\s+dotyczy\s+(tego,?\s*)?czy|(autor\w*|użytkownik\w*)(\s+tekstu)?\s+(pyta|zastanawia\s+się|dopytuje|chce\s+wiedzieć),?\s*czy|czy)\s+/i;
+const WSTEP_RELACJI = /^\s*((autor\w*|użytkownik\w*)(\s+tekstu)?\s+(słyszał\w*|czytał\w*|twierdzi|informuje)|istnieje\s+twierdzenie|krąży\s+informacja|mówi\s+się),?\s*(że|iż)\s+/i;
+
+function naprawTwierdzenie(claim) {
+  if (!claim || typeof claim.claim !== 'string') return claim;
+  const zWielkiej = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  let tekst = claim.claim;
+  let typ = claim.type;
+
+  if (WSTEP_PYTANIA.test(tekst)) {
+    tekst = tekst.replace(WSTEP_PYTANIA, '').replace(/\?+\s*$/, '.');
+    if (typ === 'non_verifiable' || typ === 'opinion') typ = 'event';
+  } else if (WSTEP_RELACJI.test(tekst)) {
+    tekst = tekst.replace(WSTEP_RELACJI, '');
+  }
+  tekst = zWielkiej(tekst.trim());
+  return tekst === claim.claim && typ === claim.type ? claim : { ...claim, claim: tekst, type: typ };
+}
+
 function mapujBladModelu2(err) {
   if (err instanceof Model2Error) {
     let status = 502;
@@ -114,6 +138,7 @@ async function uruchomPipeline(body, options = {}) {
   }
   const czasModel2Ms = Date.now() - t2;
   etapyUkonczone.push('model2');
+  wynikModelu2.claims = (wynikModelu2.claims || []).map(naprawTwierdzenie);
 
   if (!wynikModelu2.claims || wynikModelu2.claims.length === 0) {
     ostrzezenia.push('Model 2 nie wyodrębnił żadnych twierdzeń do weryfikacji w przesłanym materiale.');
@@ -186,4 +211,5 @@ async function uruchomPipeline(body, options = {}) {
 module.exports = {
   PipelineError,
   uruchomPipeline,
+  naprawTwierdzenie,
 };

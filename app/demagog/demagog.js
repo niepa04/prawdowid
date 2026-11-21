@@ -33,7 +33,8 @@ KROK 1. Ustal SEDNO twierdzenia, czyli sam fakt, o który chodzi:
    - "Udowodniono / badania pokazują / mówi się / słyszałem, że X" oceniasz jako twierdzenie X,
    - "Istnieje twierdzenie, że X" / "Autor kwestionuje, czy X" oceniasz jako twierdzenie X.
 KROK 2. Jeśli jest dowód z polem "ocena_fact_checkera" dotyczący tego sedna – werdykt wynika z tej oceny (zasada 5). Koniec.
-KROK 3. Jeśli dowody wprost zaprzeczają sednu – "Fałszywe".
+KROK 2a. ARTYKUŁ FACT-CHECKERA bez osobnej oceny: jeśli dowód od niezależnego fact-checkera (typ_zrodla = "niezależny fact-checker") ma tytuł lub treść odnoszącą się wprost do sedna – np. "X? Nie ma takich planów", "To nie X, tylko Y", "X to fałsz", "Uwaga na zmanipulowane nagranie z X" – traktuj go jak rozstrzygnięcie: obalenie sedna -> "Fałszywe", wskazanie przekręcenia lub brakującego kontekstu -> "Wprowadzające w błąd", potwierdzenie -> "Potwierdzone". NIE wybieraj wtedy "Brak wystarczających dowodów".
+KROK 3. Jeśli dowody wprost zaprzeczają sednu – "Fałszywe". Sedno jest nieprawdziwe także wtedy, gdy dotyczy INNEJ osoby, miejsca lub zdarzenia niż w rzeczywistości (np. słowa przypisane "miss Ukrainy" wypowiedział ktoś inny; szpiedzy pracowali dla innego państwa niż podano; zdarzenie w ogóle nie miało miejsca) – to "Fałszywe", a nie "Wprowadzające w błąd".
 KROK 4. Jeśli dowody potwierdzają sedno, ale nie zgadza się istotny szczegół albo brakuje kluczowego kontekstu – "Wprowadzające w błąd".
 KROK 5. Jeśli dowody wprost potwierdzają sedno i szczegóły – "Potwierdzone".
 KROK 6. W każdym innym przypadku – "Brak wystarczających dowodów".
