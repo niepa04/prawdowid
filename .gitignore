@@ -173,3 +173,6 @@ desktop.ini
 # Local uploads / temp
 uploads/
 tmp/
+
+# Raporty z testu werdyktów (testy/test_werdyktow.js)
+testy/raporty/

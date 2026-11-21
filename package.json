@@ -20,7 +20,8 @@
   "scripts": {
     "start": "node app/koma.js",
     "dev": "node --watch app/koma.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:werdykty": "node testy/test_werdyktow.js"
   },
   "dependencies": {
     "express": "^5.3.0"
