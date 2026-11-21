@@ -1,34 +1,39 @@
 import { useEffect, useState } from 'react';
 import Ikona from './Ikona.jsx';
 
-// Etapy pokazywane podczas sprawdzania. Na razie przechodzą same po czasie,
-// później będą podpięte pod prawdziwy postęp z serwera.
+// Etapy pokazywane podczas sprawdzania. Serwer nie raportuje jeszcze postępu,
+// więc etapy przechodzą po szacowanym czasie, a ostatni trwa, dopóki nie przyjdzie odpowiedź.
 function etapy({ linki, zdjecia }) {
   return [
-    'Rozdzielanie tekstu, linków i zdjęć',
-    zdjecia.length > 0 && `Odczytywanie tekstu ze ${zdjecia.length === 1 ? 'zdjęcia' : 'zdjęć'}`,
-    linki.length > 0 && `Pobieranie ${linki.length === 1 ? 'strony' : 'stron'} z linków`,
-    'Wybieranie informacji na temat',
-    'Porównywanie z bazą Demagoga',
+    { nazwa: 'Rozdzielanie tekstu, linków i zdjęć', czas: 1500 },
+    zdjecia.length > 0 && { nazwa: `Odczytywanie tekstu ze ${zdjecia.length === 1 ? 'zdjęcia' : 'zdjęć'}`, czas: 8000 * zdjecia.length },
+    linki.length > 0 && { nazwa: `Pobieranie ${linki.length === 1 ? 'strony' : 'stron'} z linków`, czas: 4000 },
+    { nazwa: 'Wybieranie informacji na temat', czas: 6000 },
+    { nazwa: 'Rozbijanie na twierdzenia do sprawdzenia', czas: 10000 },
+    { nazwa: 'Szukanie dowodów w oficjalnych źródłach', czas: 15000 },
+    { nazwa: 'Wydawanie werdyktu', czas: Infinity },
   ].filter(Boolean);
 }
 
-const CZAS_ETAPU_MS = 900;
-
-export default function Sprawdzanie({ zgloszenie, onKoniec }) {
-  const lista = etapy(zgloszenie);
+export default function Sprawdzanie({ zgloszenie, onAnuluj }) {
+  const [lista] = useState(() => etapy(zgloszenie));
   const [aktualny, setAktualny] = useState(0);
+  const [sekundy, setSekundy] = useState(0);
 
   useEffect(() => {
-    if (aktualny >= lista.length) {
-      const t = setTimeout(onKoniec, 400);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => setAktualny((a) => a + 1), CZAS_ETAPU_MS);
+    const czas = lista[aktualny]?.czas;
+    if (!Number.isFinite(czas)) return;
+    const t = setTimeout(() => setAktualny((a) => a + 1), czas);
     return () => clearTimeout(t);
-  }, [aktualny, lista.length, onKoniec]);
+  }, [aktualny, lista]);
 
-  const procent = Math.round((Math.min(aktualny, lista.length) / lista.length) * 100);
+  useEffect(() => {
+    const t = setInterval(() => setSekundy((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // pasek dochodzi do 90%, ostatnie 10% po odpowiedzi serwera
+  const procent = Math.round((aktualny / (lista.length - 1)) * 90);
 
   return (
     <div className="sprawdzanie" aria-live="polite">
@@ -36,7 +41,7 @@ export default function Sprawdzanie({ zgloszenie, onKoniec }) {
         <div className="postep__pasek" style={{ width: `${procent}%` }} />
       </div>
       <ol className="etapy">
-        {lista.map((nazwa, i) => {
+        {lista.map(({ nazwa }, i) => {
           const stan = i < aktualny ? 'gotowe' : i === aktualny ? 'trwa' : 'czeka';
           return (
             <li key={nazwa} className={`etap etap--${stan}`}>
@@ -50,6 +55,10 @@ export default function Sprawdzanie({ zgloszenie, onKoniec }) {
           );
         })}
       </ol>
+      <div className="sprawdzanie__dol">
+        <span>Trwa {sekundy} s. Dokładne sprawdzenie może zająć do kilku minut.</span>
+        <button className="przycisk-maly" onClick={onAnuluj}>Anuluj</button>
+      </div>
     </div>
   );
 }

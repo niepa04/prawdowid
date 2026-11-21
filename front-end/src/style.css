@@ -286,3 +286,36 @@ a:focus-visible, button:focus-visible, textarea:focus-visible {
   .kroki { grid-template-columns: 1fr; }
   .przycisk-drugi--glowny { margin-left: 0; }
 }
+
+/* Dodatki do wyniku z backendu (Demagog) */
+:root { --brak: #eef1f5; --brak-tekst: #3f4a5a; }
+.werdykt--brak { background: var(--brak); color: var(--brak-tekst); }
+.plakietka--brak { background: var(--brak); color: var(--brak-tekst); }
+.skala { grid-template-columns: repeat(3, 1fr); }
+
+.twierdzenie-glowne { margin-top: 20px; padding: 12px 16px; border-left: 4px solid var(--niebieski); background: var(--niebieski-bardzo-jasny); }
+.twierdzenie-glowne__etykieta { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tekst-slaby); }
+.twierdzenie-glowne p { margin: 4px 0 0; font-size: 17px; font-weight: 600; }
+
+.ostrzezenia { margin: 0 0 20px; padding: 10px 16px 10px 32px; background: var(--czesciowo); color: var(--czesciowo-tekst); border-radius: var(--promien); font-size: 14px; }
+
+.zrodlo__tresc { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.zrodlo__tytul { overflow-wrap: anywhere; }
+.zrodlo__wydawca { font-size: 13px; color: var(--tekst-slaby); }
+.zrodla--male { margin-top: 8px; }
+.zrodla--male .zrodlo { padding: 8px 12px; font-size: 14px; }
+
+.twierdzenia { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.twierdzenie { border: 1px solid var(--ramka); border-radius: var(--promien); padding: 12px 16px; }
+.twierdzenie__gora { display: flex; align-items: flex-start; gap: 12px; }
+.twierdzenie__tresc { font-weight: 600; }
+.twierdzenie__uzasadnienie { margin: 6px 0 0; font-size: 14px; line-height: 1.55; color: var(--tekst-drugi); }
+
+.sprawdzanie__dol { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; font-size: 14px; color: var(--tekst-slaby); }
+.czas { margin: 12px 0 0; font-size: 13px; color: var(--tekst-slaby); text-align: right; }
+
+.komunikat-bledu { border: 1px solid var(--falsz); background: var(--falsz); color: var(--falsz-tekst); border-radius: 12px; padding: 20px 24px; }
+.komunikat-bledu h2 { margin: 0 0 6px; font-size: 20px; }
+.komunikat-bledu p { margin: 0; color: var(--tekst); }
+.komunikat-bledu__akcje { display: flex; gap: 10px; margin-top: 16px; }
+.komunikat-bledu__akcje .przycisk-drugi--glowny { margin-left: 0; }

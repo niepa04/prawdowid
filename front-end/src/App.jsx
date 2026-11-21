@@ -1,23 +1,41 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import PoleWejscia from './komponenty/PoleWejscia.jsx';
 import Sprawdzanie from './komponenty/Sprawdzanie.jsx';
 import Wynik from './komponenty/Wynik.jsx';
 import Ikona from './komponenty/Ikona.jsx';
-import { PRZYKLADOWY_WYNIK } from './przykladowyWynik.js';
+import { weryfikuj } from './api.js';
 
-// Trzy etapy strony: wpisywanie -> sprawdzanie -> wynik.
-// Na razie nic nie jest podpięte do serwera, sprawdzanie jest symulowane.
+// Trzy etapy strony: wpisywanie -> sprawdzanie -> wynik (albo błąd).
 export default function App() {
   const [etap, setEtap] = useState('wpisywanie');
   const [zgloszenie, setZgloszenie] = useState(null);
+  const [wynik, setWynik] = useState(null);
+  const [blad, setBlad] = useState('');
+  const numerZapytania = useRef(0);
 
-  function sprawdz(dane) {
+  async function sprawdz(dane) {
+    const numer = ++numerZapytania.current;
     setZgloszenie(dane);
+    setWynik(null);
+    setBlad('');
     setEtap('sprawdzanie');
+    try {
+      const odp = await weryfikuj(dane);
+      if (numer !== numerZapytania.current) return; // użytkownik w międzyczasie zaczął od nowa
+      setWynik(odp);
+      setEtap('wynik');
+    } catch (err) {
+      if (numer !== numerZapytania.current) return;
+      setBlad(err.message);
+      setEtap('blad');
+    }
   }
 
   function odNowa() {
+    numerZapytania.current++;
     setZgloszenie(null);
+    setWynik(null);
+    setBlad('');
     setEtap('wpisywanie');
   }
 
@@ -47,10 +65,21 @@ export default function App() {
 
         <section className="panel">
           {etap === 'wpisywanie' && <PoleWejscia onSprawdz={sprawdz} />}
-          {etap === 'sprawdzanie' && (
-            <Sprawdzanie zgloszenie={zgloszenie} onKoniec={() => setEtap('wynik')} />
+          {etap === 'sprawdzanie' && <Sprawdzanie zgloszenie={zgloszenie} onAnuluj={odNowa} />}
+          {etap === 'wynik' && <Wynik wynik={wynik} onOdNowa={odNowa} />}
+          {etap === 'blad' && (
+            <div className="komunikat-bledu" role="alert">
+              <h2>Nie udało się sprawdzić informacji</h2>
+              <p>{blad}</p>
+              <div className="komunikat-bledu__akcje">
+                <button className="przycisk-drugi przycisk-drugi--glowny" onClick={() => sprawdz(zgloszenie)}>
+                  <Ikona nazwa="odswiez" rozmiar={16} />
+                  Spróbuj ponownie
+                </button>
+                <button className="przycisk-drugi" onClick={odNowa}>Wróć</button>
+              </div>
+            </div>
           )}
-          {etap === 'wynik' && <Wynik wynik={PRZYKLADOWY_WYNIK} onOdNowa={odNowa} />}
         </section>
 
         {etap === 'wpisywanie' && (
