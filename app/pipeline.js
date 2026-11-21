@@ -4,6 +4,8 @@ const filtrTekstu = require('./filtr_tekstu/filtr_tekstu');
 const { model2, Model2Error } = require('./rozpoznawacz_kontekstów/model2');
 const model3 = require('./model3/model3');
 const { demagog } = require('./demagog/demagog');
+const { filtrujZgloszenie } = require('./filtr_wstepny/filtrWstepny');
+const { zarejestrujNierozstrzygniete } = require('./dodatki/nierozstrzygniete');
 
 class PipelineError extends Error {
   constructor(wiadomosc, { status = 502, etap = 'pipeline', kod = 'PIPELINE_ERROR', cause = null } = {}) {
@@ -57,6 +59,40 @@ function zachowajSlowaUzytkownika(claims) {
     });
   }
   return wynik;
+}
+
+// Odpowiedź dla zgłoszenia zatrzymanego przez filtr wstępny - ten sam kształt co pełny wynik,
+// żeby frontend i logi działały bez zmian.
+function wynikOdrzucony(tekst, czasModel1Ms, decyzja, startCalkowity) {
+  const komunikat =
+    `Nie sprawdzamy tego zgłoszenia, bo to ${decyzja.opis}. ` +
+    (decyzja.powod ? `${decyzja.powod} ` : '') +
+    'Wpisz konkretną informację albo pytanie o fakt, np. „Czy w Warszawie ogłoszono stan wyjątkowy?”.';
+  return {
+    status: 'rejected',
+    werdykt_ogolny: 'Nie podlega weryfikacji',
+    tekst,
+    model1: { tekst, czas_ms: czasModel1Ms },
+    model2: { original_text: tekst, claims: [], czas_ms: 0 },
+    model3: { status: 'no_results', claims: [], czas_ms: 0 },
+    demagog: {
+      werdykt_ogolny: 'Nie podlega weryfikacji',
+      glowna_odpowiedz: komunikat,
+      glowne_zrodla: [],
+      twierdzenia: [],
+      czas_ms: 0,
+    },
+    filtr_wstepny: decyzja,
+    metadane: {
+      czas_calkowity_ms: Date.now() - startCalkowity,
+      etapy_ukonczone: ['model1', 'filtr_wstepny'],
+      liczba_twierdzen: 0,
+      liczba_dowodow: 0,
+      ostrzezenia: [],
+      security_flags: decyzja.kategoria === 'polecenie' ? [{ type: 'input_command_only', reason: decyzja.powod }] : [],
+      odrzucone_przez_filtr: true,
+    },
+  };
 }
 
 function mapujBladModelu2(err) {
@@ -146,6 +182,18 @@ async function uruchomPipeline(body, options = {}) {
     });
   }
 
+  // 1b. FILTR WSTĘPNY – spam, bełkot, small talk i same polecenia nie idą do analizy
+  // (w testach z podstawionymi modelami filtr jest pomijany, chyba że podano filtrImpl)
+  const filtrFn =
+    options.filtrImpl !== undefined ? options.filtrImpl : options.model2Impl ? null : (t) => filtrujZgloszenie(t, options.filtr);
+  if (filtrFn) {
+    const tekstDoFiltra = tekstPoModelu1.replace(/=====\s*\[[^\]]+\]\s*=====/g, ' ').trim();
+    const decyzja = await filtrFn(tekstDoFiltra);
+    if (decyzja && decyzja.przepuscic === false) {
+      return wynikOdrzucony(tekstPoModelu1, czasModel1Ms, decyzja, startCalkowity);
+    }
+  }
+
   // 2. MODEL 2 – dekompozycja na atomowe twierdzenia
   const t2 = Date.now();
   let wynikModelu2;
@@ -189,6 +237,10 @@ async function uruchomPipeline(body, options = {}) {
   const czasDemagogMs = Date.now() - t4;
   etapyUkonczone.push('demagog');
 
+  // Pętla informacji: nierozstrzygnięte sprawy trafiają do rejestru (z deduplikacją)
+  const rejestr = options.rejestrImpl !== undefined ? options.rejestrImpl : options.model2Impl ? null : zarejestrujNierozstrzygniete;
+  const nierozstrzygniete = rejestr ? rejestr(wynikDemagoga.twierdzenia || []) : null;
+
   const liczbaDowodow = (wynikModelu3.claims || []).reduce(
     (suma, c) => suma + (Array.isArray(c.evidence) ? c.evidence.length : 0),
     0
@@ -222,6 +274,7 @@ async function uruchomPipeline(body, options = {}) {
       liczba_dowodow: liczbaDowodow,
       ostrzezenia,
       security_flags: wynikModelu3.security_flags || [],
+      nierozstrzygniete,
     },
   };
 }

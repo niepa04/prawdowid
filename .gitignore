@@ -176,3 +176,6 @@ tmp/
 
 # Raporty z testu werdyktów (testy/test_werdyktow.js)
 testy/raporty/
+
+# Rejestr nierozstrzygniętych spraw (pętla informacji)
+app/data/
