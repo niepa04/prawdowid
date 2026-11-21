@@ -150,7 +150,10 @@ function walidujZapytanie(body) {
 // Middleware: zamienia błędy walidacji i błędy parsowania JSON na odpowiedź 400/413
 function obslugaBledow(err, req, res, next) {
   if (err instanceof BladWalidacji || err.publiczny) {
-    return res.status(err.status).json({ blad: err.message });
+    const odpowiedz = { blad: err.message };
+    if (err.etap) odpowiedz.etap = err.etap;
+    if (err.kod) odpowiedz.kod = err.kod;
+    return res.status(err.status || 500).json(odpowiedz);
   }
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ blad: 'Nieprawidłowy JSON.' });

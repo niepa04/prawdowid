@@ -1,9 +1,10 @@
-// koma.js - serwer aplikacji
+// koma.js - główny serwer aplikacji KOMA / PRAWDOWID (Model 1 -> Model 2 -> Model 3)
 const express = require('express');
-const { walidujZapytanie, obslugaBledow } = require('./dodatki/zabezpieczenia');
-const filtrTekstu = require('./filtr_tekstu/filtr_tekstu');
-
 const os = require('os');
+const path = require('path');
+const { obslugaBledow } = require('./dodatki/zabezpieczenia');
+const { uruchomPipeline } = require('./pipeline');
+const { createSourceRegistry } = require('./model3/sourceRegistry');
 
 const app = express();
 
@@ -22,11 +23,26 @@ app.set('trust proxy', 'loopback');
 const jsonZapytanie = express.json({ limit: '70mb', strict: true });
 
 // TEST: tymczasowy frontend, usunąć razem z plikiem test.html
-const path = require('path');
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'test.html'));
 });
 
+// Status serwera i podpiętych modułów
+app.get('/api/status', (req, res) => {
+  let zrodla = null;
+  try {
+    const reg = createSourceRegistry();
+    zrodla = { lacznie: reg.allSources.length, aktywne: reg.enabledSources.length };
+  } catch (err) {
+    zrodla = { blad: err.message };
+  }
+  res.json({
+    status: 'ok',
+    app: 'prawdowid',
+    pipeline: ['model1', 'model2', 'model3', 'demagog'],
+    zrodla_oficjalne: zrodla,
+  });
+});
 
 // POST /api/weryfikuj  body (JSON), każde pole opcjonalne, przynajmniej jedno niepuste:
 // {
@@ -35,16 +51,15 @@ app.get('/', (req, res) => {
 //   "zdjecia": "<base64>"    albo ["<base64>", ...],
 //   "film":    null (jeszcze nieobsługiwany)
 // }
-// Odpowiedź: { "tekst": "jeden długi, przefiltrowany tekst" }
+// Odpowiedź: { status, tekst, model1, model2, model3, metadane }
 app.post('/api/weryfikuj', jsonZapytanie, async (req, res) => {
-  const dane = walidujZapytanie(req.body);
-  const tekst = await filtrTekstu.konwertuj(dane);
+  const wynik = await uruchomPipeline(req.body);
 
-  // TEST: wypisuje tekst z filtra w konsoli serwera
-  console.log(`\n----- tekst z zapytania -----\n${tekst}\n----- koniec -----`);
-  // TODO: dalsze przetwarzanie tekstu
+  console.log(
+    `[KOMA] /api/weryfikuj -> werdykt="${wynik.werdykt_ogolny}" | status=${wynik.status} | twierdzeń=${wynik.metadane.liczba_twierdzen} | dowodów=${wynik.metadane.liczba_dowodow} | czasy: M1=${wynik.model1.czas_ms}ms M2=${wynik.model2.czas_ms}ms M3=${wynik.model3.czas_ms}ms DEM=${wynik.demagog.czas_ms}ms`
+  );
 
-  res.json({ tekst });
+  res.json(wynik);
 });
 
 app.use((req, res) => {
@@ -65,14 +80,20 @@ function adresyTailscale() {
     });
 }
 
-app.listen(PORT, HOST, () => {
-  console.log(`Serwer działa na http://localhost:${PORT}`);
-  if (HOST === '0.0.0.0') {
-    const ts = adresyTailscale();
-    if (ts.length) {
-      ts.forEach((ip) => console.log(`Tailscale:          http://${ip}:${PORT}`));
-    } else {
-      console.log('Nie wykryto adresu Tailscale - czy Tailscale jest włączony?');
+if (require.main === module) {
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`Serwer KOMA (Model 1 -> Model 2 -> Model 3) działa na http://localhost:${PORT}`);
+    if (HOST === '0.0.0.0') {
+      const ts = adresyTailscale();
+      if (ts.length) {
+        ts.forEach((ip) => console.log(`Tailscale:          http://${ip}:${PORT}`));
+      } else {
+        console.log('Nie wykryto adresu Tailscale - czy Tailscale jest włączony?');
+      }
     }
-  }
-});
+  });
+  // Długi limit czasu dla zapytań zawierających OCR + filtrowanie + Model 2 + Model 3
+  server.requestTimeout = 600000;
+}
+
+module.exports = app;

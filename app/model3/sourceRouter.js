@@ -8,14 +8,14 @@ const CATEGORY_RULES = [
       /\bmsz\b/i,
       /\bodyseusz\w*/i,
       /podróż\w*/i,
-      /wyjazd\w*\s+(za\s+granic|zagraniczn)/i,
-      /odradz\w*\s+podróż/i,
-      /konsul\w*/i,
-      /ambasad\w*/i,
+      /wyjazd\w*|turyst\w*|wakacj\w*/i,
+      /odradz\w*\s+(podróż|wszelkie\s+podróże|wyjazd)/i,
+      /konsul\w*|ambasad\w*|placówk\w*\s+dyplomatyczn/i,
       /ewakuacj\w*\s+obywatel/i,
-      /dyplomacj\w*/i,
-      /paszport\w*|wiz[ayę]\b/i,
-      /za\s+granic[ąę]/i,
+      /dyplomacj\w*|spraw\w*\s+zagraniczn/i,
+      /paszport\w*|wiz[ayęąo]\b|wjazd\w*\s+do\b|pobyt\w*\s+w\b/i,
+      /za\s+granic[ąę]|zagranic\w*/i,
+      /\b(egip\w*|synaj\w*|izrael\w*|palestyn\w*|gaz[ayę]|liban\w*|syri\w*|iran\w*|irak\w*|jordani\w*|turcj\w*|tureck\w*|grecj\w*|chorwac\w*|włoch\w*|włosz\w*|hiszpani\w*|francj\w*|niemc\w*|niemie\w*|wielk\w*\s+brytani\w*|angli\w*|\busa\b|stan\w*\s+zjednoczon\w*|ukrain\w*|rosj\w*|białoru\w*|litw\w*|litew\w*|łotw\w*|estoni\w*|czech\w*|słowac\w*|węgier\w*|węgrz\w*|rumuni\w*|bułgari\w*|szwecj\w*|norwegi\w*|finlandi\w*|dani\w*|holandi\w*|belgi\w*|szwajcari\w*|austri\w*|portugali\w*|irlandi\w*|gruzj\w*|tajlandi\w*|japoni\w*|chin\w*|indi\w*|wietnam\w*|indonezj\w*|bali\b|kore\w*|marok\w*|tunezj\w*|dubaj\w*|emirat\w*|katar\w*|arabi\w*\s+saudyjsk\w*|meksyk\w*|brazyli\w*|kanad\w*|australi\w*)\b/i,
     ],
   },
   {
@@ -68,7 +68,7 @@ const CATEGORY_RULES = [
       /\bimgw\b/i,
       /\bgioś\b|\bgios\b/i,
       /jakośc\w*\s+powietrz\w*|powietrz\w*|smog\w*|pm\s*10|pm\s*2[.,]5|pył\w*|zanieczyszczen\w*/i,
-      /pogod\w*|meteorolog\w*|burz\w*|wiatr\w*|wichur\w*|opad\w*|ulew\w*|grad\w*|mróz|mroz\w*|upał\w*|gołoled\w*|śnieżyc\w*|mgł\w*/i,
+      /pogod\w*|meteorolog\w*|burz\w*|wiatr\w*|wichur\w*|opad\w*|ulew\w*|grad\w*|mróz|mroz\w*|przymrozk\w*|upał\w*|oblodzen\w*|gołoled\w*|śnieżyc\w*|śnieg\w*|mgł\w*/i,
       /hydrolog\w*|powód\w*|powodzi\w*|podtopien\w*|wezbran\w*|stan\w*\s+wód|susz\w*/i,
       /bałtyk\w*|sztorm\w*|falowan\w*|wybrzeż\w*/i,
     ],
@@ -115,17 +115,23 @@ const CATEGORY_RULES = [
     category: 'government_admin',
     label: 'Informacje administracji rządowej',
     patterns: [
-      /\bkprm\b|kancelari\w*\s+premier\w*/i,
+      /\bkprm\b|kancelari\w*\s+(premier\w*|prezydent\w*)/i,
       /\bpremier\w*|rad\w*\s+ministrów|\brząd\w*\b/i,
-      /ustaw\w*|rozporządzen\w*|komunikat\w*\s+rządow\w*|minister\w*/i,
+      /\bprezydent\w*|głow\w*\s+państw\w*|\bsejm\w*|\bsenat\w*|marszał\w*\s+(sejmu|senatu)/i,
+      /rzeczypospolit\w*|\brp\b|państw\w*\s+polsk\w*|wybor\w*\s+(prezydenck|parlamentarn)/i,
+      /ustaw\w*|rozporządzen\w*|komunikat\w*\s+rządow\w*|minister\w*|konstytucj\w*/i,
     ],
   },
 ];
 
+const CATEGORY_LABELS = Object.freeze(
+  Object.fromEntries(CATEGORY_RULES.map((r) => [r.category, r.label]))
+);
+
 // Reguły podbijające konkretne źródła przy silnym sygnale instytucji/regionu/tematu
 const SPECIFIC_SOURCE_BOOSTS = [
   { regex: /mazowieck\w*|warszaw\w*/i, sourceIds: ['SRC003', 'SRC008'], boost: 4 },
-  { regex: /\bimgw\b|pogod\w*|wiatr\w*|burz\w*|opad\w*|ulew\w*|mróz|upał/i, sourceIds: ['SRC034', 'SRC002', 'SRC037', 'SRC005'], boost: 5 },
+  { regex: /\bimgw\b|pogod\w*|wiatr\w*|burz\w*|opad\w*|ulew\w*|mróz|przymrozk\w*|upał\w*|oblodzen\w*|gołoled\w*|śnieżyc\w*/i, sourceIds: ['SRC002', 'SRC034', 'SRC037', 'SRC005'], boost: 5 },
   { regex: /hydrolog\w*|powód\w*|powodzi\w*|stan\w*\s+wód|rzek\w*|wisł\w*|odr\w*/i, sourceIds: ['SRC035', 'SRC002', 'SRC033', 'SRC037'], boost: 5 },
   { regex: /bałtyk\w*|sztorm\w*|wybrzeż\w*/i, sourceIds: ['SRC036', 'SRC031', 'SRC032', 'SRC030'], boost: 5 },
   { regex: /pm\s*10|pm\s*2[.,]5|smog\w*|jakośc\w*\s+powietrz\w*|pył\w*|\bgioś\b|\bgios\b/i, sourceIds: ['SRC013', 'SRC002', 'SRC037'], boost: 6 },
@@ -134,7 +140,7 @@ const SPECIFIC_SOURCE_BOOSTS = [
   { regex: /kolej\w*|pociąg\w*|\bpkp\b|\butk\b|\bkgsok\b|dworc\w*/i, sourceIds: ['SRC028', 'SRC027', 'SRC029', 'SRC016'], boost: 6 },
   { regex: /\bulc\b|lotnictw\w*|samolot\w*|lotnisk\w*|odwołan\w*\s+lot/i, sourceIds: ['SRC024', 'SRC025', 'SRC016', 'SRC017'], boost: 6 },
   { regex: /praw\w*\s+pasażer/i, sourceIds: ['SRC017', 'SRC025', 'SRC026', 'SRC028'], boost: 6 },
-  { regex: /\bmsz\b|\bodyseusz\w*|podróż\w*\s+(do|za)|odradz\w*\s+podróż/i, sourceIds: ['SRC039', 'SRC001'], boost: 7 },
+  { regex: /\bmsz\b|\bodyseusz\w*|podróż\w*|odradz\w*\s+podróż|ambasad\w*|konsul\w*|wiz[ayę]\b|\b(egip\w*|synaj\w*|izrael\w*|liban\w*|syri\w*|iran\w*|irak\w*|turcj\w*|grecj\w*|chorwac\w*|włoch\w*|włosz\w*|hiszpani\w*|francj\w*|niemc\w*|ukrain\w*|rosj\w*|białoru\w*|tajlandi\w*|japoni\w*|chin\w*|\busa\b|stan\w*\s+zjednoczon\w*|marok\w*|tunezj\w*|gruzj\w*|meksyk\w*)\b/i, sourceIds: ['SRC001', 'SRC039'], boost: 7 },
   { regex: /\bgis\b|sanepid\w*|żywnośc\w*|wycofan\w*\s+(produkt|parti)|salmonell\w*/i, sourceIds: ['SRC010', 'SRC002'], boost: 7 },
   { regex: /\bpaa\b|promieniowan\w*|radiac\w*|jądrow\w*|moc\w*\s+dawk\w*|atomistyk/i, sourceIds: ['SRC012', 'SRC011', 'SRC037'], boost: 7 },
   { regex: /\bmon\b|wojsk\w*|dron\w*|\bnato\b|obron\w*\s+narodow/i, sourceIds: ['SRC009', 'SRC038', 'SRC037'], boost: 6 },
@@ -145,7 +151,7 @@ const SPECIFIC_SOURCE_BOOSTS = [
   { regex: /wody\s+polski|komunikat\w*\s+nawigacyjn|śluza|żeglug\w*\s+śródlądow/i, sourceIds: ['SRC033'], boost: 6 },
   { regex: /\bsar\b|ratownictw\w*\s+morski/i, sourceIds: ['SRC030', 'SRC031', 'SRC032'], boost: 5 },
   { regex: /\brcb\b|raport\w*\s+dobow/i, sourceIds: ['SRC005', 'SRC037', 'SRC002'], boost: 6 },
-  { regex: /\bpremier\w*|\bkprm\b|rad\w*\s+ministrów/i, sourceIds: ['SRC040'], boost: 5 },
+  { regex: /\bpremier\w*|\bkprm\b|rad\w*\s+ministrów|\bprezydent\w*|\bsejm\w*|\bsenat\w*/i, sourceIds: ['SRC040'], boost: 5 },
   { regex: /infolini\w*|numer\s+telefon|19\s*111|dane\s+kontaktowe/i, sourceIds: ['SRC018', 'SRC019', 'SRC023'], boost: 6 },
 ];
 
@@ -218,6 +224,7 @@ function routeClaimToSources(claim, allClaims, sourceRegistry, options = {}) {
   if ((claim.type === 'opinion' || claim.type === 'non_verifiable') && !hasRelatedFact) {
     return {
       matchedCategories: [],
+      matchedCategoryLabels: [],
       selectedSources: [],
       noSuitableSource: true,
       routingNote: `Twierdzenie ma typ "${claim.type}" bez bezpośredniego powiązania z faktem weryfikowalnym w oficjalnych źródłach.`,
@@ -350,6 +357,7 @@ function routeClaimToSources(claim, allClaims, sourceRegistry, options = {}) {
   if (selected.length === 0) {
     return {
       matchedCategories,
+      matchedCategoryLabels: matchedCategories.map((c) => CATEGORY_LABELS[c] || c),
       selectedSources: [],
       noSuitableSource: true,
       routingNote: 'Brak odpowiedniego źródła w katalogu 40 oficjalnych źródeł dla tematyki tego twierdzenia.',
@@ -358,6 +366,7 @@ function routeClaimToSources(claim, allClaims, sourceRegistry, options = {}) {
 
   return {
     matchedCategories,
+    matchedCategoryLabels: matchedCategories.map((c) => CATEGORY_LABELS[c] || c),
     selectedSources: selected.map((s) => s.source),
     scoredSelection: selected.map((s) => ({
       source_id: s.source.source_id,
@@ -371,6 +380,7 @@ function routeClaimToSources(claim, allClaims, sourceRegistry, options = {}) {
 
 module.exports = {
   CATEGORY_RULES,
+  CATEGORY_LABELS,
   buildClaimContextText,
   routeClaimToSources,
 };

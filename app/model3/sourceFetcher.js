@@ -281,6 +281,10 @@ function createSourceFetcher(sourceRegistry, config, deps = {}) {
 
       // 3. Właściwe żądanie HTTP z redirect: 'manual'
       let response;
+      const extraHeaders =
+        urlCheck.hostname === 'odyseusz.gov.pl'
+          ? { 'X-Client-Type': 'browser', 'x-version-web': '1.1.88' }
+          : {};
       try {
         response = await fetchFn(currentUrl, {
           method: 'GET',
@@ -292,6 +296,7 @@ function createSourceFetcher(sourceRegistry, config, deps = {}) {
               fetchOptions.accept ||
               'text/html,application/xhtml+xml,application/xml,application/json;q=0.9,*/*;q=0.8',
             'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.5',
+            ...extraHeaders,
           },
         });
       } catch (err) {

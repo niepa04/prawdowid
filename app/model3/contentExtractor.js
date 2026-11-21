@@ -227,8 +227,13 @@ function extractFromHtml(html, source, finalUrl, retrievedAt, sourceRegistry, fe
     jsonLd.updated_at ||
     null;
 
-  // Wykrywanie SPA bez treści
-  const bodyText = stripHtmlToText(html);
+  // Wykrywanie SPA bez treści; dla zwykłych stron preferujemy zawartość <main> / <article> bez nawigacji
+  const mainBlock =
+    html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1] ||
+    html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] ||
+    html;
+  const scopedText = stripHtmlToText(mainBlock);
+  const bodyText = scopedText.length >= 80 ? scopedText : stripHtmlToText(html);
   const isSpaEmpty =
     bodyText.length < 150 &&
     (/<app-root\b/i.test(html) || /<div[^>]+id=["'](root|app|__next)["'][^>]*>\s*<\/div>/i.test(html) || /data-beasties-container/i.test(html));
@@ -508,6 +513,146 @@ function parseJsonApi(jsonText, source, apiUrl, retrievedAt, sourceRegistry, fet
     return { documents, links: [] };
   }
 
+  // 4. Odyseusz REST API (odyseusz.gov.pl/api/v1/informacje/...)
+  if (source.api_adapter === 'odyseusz_api' || (data && (Array.isArray(data.ostrzezeniaDlaPodrozujacych) || data.idProfiluPanstwa !== undefined || data.trescDlaczegoWarto !== undefined))) {
+    // 4a. Słownik państw /profile-panstw/mini -> zwracany jako odyseuszCountries do dalszego pobrania w evidenceCollector
+    if (Array.isArray(data) && data[0] && data[0].kodIso && data[0].nazwa) {
+      return { documents: [], links: [], odyseuszCountries: data };
+    }
+
+    // 4b. Ostrzeżenia dla kraju (/api/v1/informacje/:kodIso/ostrzezenia)
+    if (Array.isArray(data.ostrzezeniaDlaPodrozujacych) || data.bazowyKodOstrzezenia) {
+      const isoMatch = apiUrl.match(/\/informacje\/([A-Z]{2})\/ostrzezenia/i);
+      const isoCode = isoMatch ? isoMatch[1].toUpperCase() : '';
+      const pubDate = normalizeDateToIso(data.dataObowiazywaniaOd);
+      const parts = [];
+      if (data.bazowyKodOstrzezenia) {
+        parts.push(`Ogólny poziom ostrzeżenia MSZ (${isoCode}): ${data.bazowyKodOstrzezenia.replaceAll('_', ' ')}.`);
+      }
+      if (data.trescOstrzezeniaDlaKraju) {
+        parts.push(stripHtmlToText(String(data.trescOstrzezeniaDlaKraju)).replace(/\s*\n+\s*/g, ' '));
+      }
+      for (const w of data.ostrzezeniaDlaPodrozujacych || []) {
+        const levelDesc = w.poziomZagrozenia?.opis || w.poziomZagrozenia?.kod || '';
+        const regions = (w.regiony || [])
+          .map((r) => r.obszarAdministracyjny?.podzialAdministracyjny1 || r.obszarAdministracyjny?.podzialAdministracyjny2)
+          .filter(Boolean);
+        const flatTresc = w.tresc
+          ? stripHtmlToText(String(w.tresc))
+              .replace(/:\s*\r?\n\s*-\s*/g, ': ')
+              .replace(/\r?\n\s*-\s*/g, ', ')
+              .replace(/\s*\n+\s*/g, ' ')
+              .replace(/\.\s+/g, '; ')
+          : '';
+        parts.push(
+          [
+            `Ostrzeżenie Ministerstwa Spraw Zagranicznych (MSZ Odyseusz, kod kraju ${isoCode})`,
+            levelDesc ? `– ${levelDesc}:` : ':',
+            flatTresc,
+            regions.length ? `(regiony: ${regions.join(', ')})` : '',
+            w.dataObowiazywaniaOd ? `[obowiązuje od: ${w.dataObowiazywaniaOd}].` : '.',
+          ]
+            .filter(Boolean)
+            .join(' ')
+        );
+      }
+
+      if (parts.length > 0) {
+        documents.push({
+          source_id: source.source_id,
+          source_url: source.source_url,
+          url: 'https://odyseusz.gov.pl/',
+          title: `Ostrzeżenia MSZ dla podróżujących (Odyseusz – ${isoCode || apiUrl.split('/').slice(-2).join('/')})`,
+          publisher: 'Ministerstwo Spraw Zagranicznych – System Odyseusz',
+          published_at: pubDate,
+          updated_at: pubDate,
+          event_date: pubDate,
+          observed_at: retrievedAt,
+          retrieved_at: retrievedAt,
+          source_type: source.source_type,
+          content_type: 'application/json',
+          text: parts.join(' '),
+          retrieval_status: 'ok',
+          measurement_data: null,
+          limitations: [...fetchLimitations, ...(pubDate ? [] : ['Brak daty publikacji ostrzeżenia.'])],
+        });
+      }
+      return { documents, links: [] };
+    }
+
+    // 4c. Pełny profil państwa (/api/v1/informacje/profile-panstw/:kodIso)
+    if (data.idProfiluPanstwa !== undefined || data.nazwa) {
+      const countryName = data.nazwa || data.kodISO || 'Państwo';
+      const pubDate = normalizeDateToIso(data.dataAktualizacji);
+
+      if (Array.isArray(data.ostrzezenia) && data.ostrzezenia.length > 0) {
+        const warnTexts = data.ostrzezenia.map((w) => {
+          const lvl = w.poziomZagrozenia?.opis || w.poziomZagrozenia?.kod || '';
+          const flat = stripHtmlToText(String(w.tresc || ''))
+            .replace(/:\s*\r?\n\s*-\s*/g, ': ')
+            .replace(/\r?\n\s*-\s*/g, ', ')
+            .replace(/\s*\n+\s*/g, ' ')
+            .replace(/\.\s+/g, '; ');
+          return `Ostrzeżenie Ministerstwa Spraw Zagranicznych (MSZ Odyseusz) dla państwa ${countryName} (${lvl}): ${flat}.`;
+        });
+        documents.push({
+          source_id: source.source_id,
+          source_url: source.source_url,
+          url: 'https://odyseusz.gov.pl/',
+          title: `MSZ Odyseusz – Ostrzeżenia dla podróżujących: ${countryName}`,
+          publisher: 'Ministerstwo Spraw Zagranicznych – System Odyseusz',
+          published_at: pubDate,
+          updated_at: pubDate,
+          event_date: pubDate,
+          observed_at: retrievedAt,
+          retrieved_at: retrievedAt,
+          source_type: source.source_type,
+          content_type: 'application/json',
+          text: warnTexts.join(' '),
+          retrieval_status: 'ok',
+          measurement_data: null,
+          limitations: [...fetchLimitations],
+        });
+      }
+
+      for (const sekcja of data.sekcje || []) {
+        const secName = sekcja.zakresInformacyjny?.opis || sekcja.zakresInformacyjny?.kod || 'Informacje';
+        const subTexts = (sekcja.podsekcje || []).map((ps) => `${ps.tytul || ''}: ${stripHtmlToText(String(ps.tresc || ''))}`);
+        const fullSecText = [
+          `Państwo: ${countryName} (${secName}).`,
+          sekcja.podsumowanie ? stripHtmlToText(String(sekcja.podsumowanie)) : '',
+          sekcja.tresc ? stripHtmlToText(String(sekcja.tresc)) : '',
+          ...subTexts,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        if (fullSecText.length > 30) {
+          documents.push({
+            source_id: source.source_id,
+            source_url: source.source_url,
+            url: 'https://odyseusz.gov.pl/',
+            title: `MSZ Odyseusz – ${countryName}: ${secName}`,
+            publisher: 'Ministerstwo Spraw Zagranicznych – System Odyseusz',
+            published_at: pubDate,
+            updated_at: pubDate,
+            event_date: null,
+            observed_at: retrievedAt,
+            retrieved_at: retrievedAt,
+            source_type: source.source_type,
+            content_type: 'application/json',
+            text: fullSecText,
+            retrieval_status: 'ok',
+            measurement_data: null,
+            limitations: [...fetchLimitations],
+          });
+        }
+      }
+
+      return { documents, links: [] };
+    }
+  }
+
   // 4. Ogólny JSON fallback
   const items = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : [data];
   for (const item of items.slice(0, 20)) {
@@ -552,12 +697,14 @@ function parseJsonApi(jsonText, source, apiUrl, retrievedAt, sourceRegistry, fet
 function extractContent(fetchResult, source, sourceRegistry) {
   const ct = (fetchResult.contentType || '').toLowerCase();
   const body = fetchResult.body || '';
+  const looksLikeHtml = /^\s*<!doctype\s+html|^\s*<html\b/i.test(body);
 
   if (
-    ct.includes('json') ||
-    source.access_method === 'json_api' ||
-    source.access_method === 'live_measurements_api' ||
-    (/^\s*[\[{]/.test(body) && /[\]}]\s*$/.test(body))
+    !looksLikeHtml &&
+    (ct.includes('json') ||
+      source.access_method === 'json_api' ||
+      source.access_method === 'live_measurements_api' ||
+      (/^\s*[\[{]/.test(body) && /[\]}]\s*$/.test(body)))
   ) {
     return parseJsonApi(body, source, fetchResult.finalUrl, fetchResult.retrievedAt, sourceRegistry, fetchResult.limitations);
   }
@@ -569,6 +716,71 @@ function extractContent(fetchResult, source, sourceRegistry) {
   return extractFromHtml(body, source, fetchResult.finalUrl, fetchResult.retrievedAt, sourceRegistry, fetchResult.limitations);
 }
 
+const COUNTRY_ALIAS_PATTERNS = [
+  { iso: 'EG', regex: /\b(egip\w*|synaj\w*|kair\w*|hurghad\w*|szarm\w*|halaib\w*|asuan\w*)\b/i },
+  { iso: 'IL', regex: /\b(izrael\w*|tel\s+awiw\w*|jerozolim\w*|gaz[ayę])\b/i },
+  { iso: 'UA', regex: /\b(ukrain\w*|kijów|kijow\w*|lwów|lwow\w*)\b/i },
+  { iso: 'RU', regex: /\b(rosj\w*|rosyjsk\w*|moskw\w*)\b/i },
+  { iso: 'BY', regex: /\b(białoru\w*|mińsk\w*)\b/i },
+  { iso: 'DE', regex: /\b(niemc\w*|niemie\w*|berlin\w*)\b/i },
+  { iso: 'FR', regex: /\b(francj\w*|francu\w*|paryż\w*)\b/i },
+  { iso: 'IT', regex: /\b(włoch\w*|włosz\w*|włosk\w*|rzym\w*)\b/i },
+  { iso: 'ES', regex: /\b(hiszpani\w*|hiszpańsk\w*|madryt\w*)\b/i },
+  { iso: 'GB', regex: /\b(wielk\w*\s+brytani\w*|brytyjsk\w*|angli\w*|londyn\w*|\buk\b)\b/i },
+  { iso: 'US', regex: /\b(stan\w*\s+zjednoczon\w*|\busa\b|ameryk\w*|waszyngton\w*)\b/i },
+  { iso: 'TR', regex: /\b(turcj\w*|tureck\w*|stambuł\w*|ankara|antaly\w*)\b/i },
+  { iso: 'GR', regex: /\b(grecj\w*|greck\w*|aten\w*)\b/i },
+  { iso: 'HR', regex: /\b(chorwac\w*|zagrzeb\w*)\b/i },
+  { iso: 'TH', regex: /\b(tajlandi\w*|bangkok\w*)\b/i },
+  { iso: 'JP', regex: /\b(japoni\w*|japońsk\w*|tokio)\b/i },
+  { iso: 'CN', regex: /\b(chin\w*|chińsk\w*|pekin\w*)\b/i },
+  { iso: 'LT', regex: /\b(litw\w*|litew\w*|wiln\w*)\b/i },
+  { iso: 'LV', regex: /\b(łotw\w*|łotew\w*|ryg[aię])\b/i },
+  { iso: 'EE', regex: /\b(estoni\w*|estońsk\w*|tallinn\w*)\b/i },
+  { iso: 'CZ', regex: /\b(czech\w*|czesk\w*|prag[aię]|pradze)\b/i },
+  { iso: 'SK', regex: /\b(słowac\w*|bratysław\w*)\b/i },
+  { iso: 'HU', regex: /\b(węgier\w*|węgrz\w*|budapeszt\w*)\b/i },
+  { iso: 'LB', regex: /\b(liban\w*|bejrut\w*)\b/i },
+  { iso: 'IR', regex: /\b(iran\w*|irańsk\w*|teheran\w*)\b/i },
+  { iso: 'IQ', regex: /\b(irak\w*|irack\w*|bagdad\w*)\b/i },
+  { iso: 'SY', regex: /\b(syri\w*|syryjsk\w*|damaszk\w*)\b/i },
+  { iso: 'JO', regex: /\b(jordani\w*|amman\w*)\b/i },
+  { iso: 'MA', regex: /\b(marok\w*|rabat\w*|marrakesz\w*)\b/i },
+  { iso: 'TN', regex: /\b(tunezj\w*|tunis\w*)\b/i },
+  { iso: 'AE', regex: /\b(emirat\w*|dubaj\w*|abu\s+zabi)\b/i },
+  { iso: 'GE', regex: /\b(gruzj\w*|tbilisi)\b/i },
+];
+
+/**
+ * Dopasowuje kody ISO państw z oficjalnego słownika Odyseusza (/api/v1/informacje/profile-panstw/mini)
+ * do tekstu twierdzenia.
+ */
+function matchCountriesFromOdyseuszDict(countriesList, claimText) {
+  const text = String(claimText || '').toLowerCase();
+  const matchedIsos = new Set();
+
+  for (const alias of COUNTRY_ALIAS_PATTERNS) {
+    if (alias.regex.test(text)) {
+      matchedIsos.add(alias.iso);
+    }
+  }
+
+  for (const entry of Array.isArray(countriesList) ? countriesList : []) {
+    if (!entry?.kodIso || !entry?.nazwa) continue;
+    const nameLower = String(entry.nazwa).toLowerCase();
+    const stem = nameLower.length >= 5 ? nameLower.slice(0, Math.max(4, Math.floor(nameLower.length * 0.72))) : nameLower;
+    if (stem.length >= 4 && text.includes(stem)) {
+      matchedIsos.add(entry.kodIso.toUpperCase());
+    }
+  }
+
+  const byIso = new Map((Array.isArray(countriesList) ? countriesList : []).map((c) => [String(c.kodIso).toUpperCase(), c.nazwa]));
+  return [...matchedIsos].map((iso) => ({
+    kodIso: iso,
+    nazwa: byIso.get(iso) || iso,
+  }));
+}
+
 module.exports = {
   decodeEntities,
   stripHtmlToText,
@@ -578,4 +790,5 @@ module.exports = {
   parseFeedXml,
   parseJsonApi,
   extractContent,
+  matchCountriesFromOdyseuszDict,
 };

@@ -97,13 +97,14 @@ function generateQueriesForClaim(claim, allClaims, selectedSources, options = {}
       }
     }
   } else if (round === 2) {
-    // Runda 2: aktywne poszukiwanie zaprzeczeń, odwołań, dementi i statusu aktualności
+    // Runda 2: bezpośrednie wyszukiwanie wewnętrzne na zatwierdzonych hostach + sprawdzanie zaprzeczeń/odwołań
     const shortCore = coreKeywords.slice(0, 4).join(' ');
-    addQuery(`${shortCore} odwołanie OR brak`, 'contradiction_check');
-    addQuery(`${shortCore} dementi OR fałszywe`, 'contradiction_check');
-    if (selectedSources[0]) {
-      addQuery(`${shortCore} aktualizacja`, 'freshness_check', selectedSources[0].hostname);
+    addQuery(basePhrase || shortCore, 'site_search_direct', selectedSources[0]?.hostname || null);
+    if (fullPhrase && fullPhrase.toLowerCase() !== (basePhrase || '').toLowerCase()) {
+      addQuery(fullPhrase, 'site_search_contextual', selectedSources[0]?.hostname || null);
     }
+    addQuery(`${shortCore} odwołanie`, 'contradiction_check', selectedSources[0]?.hostname || null);
+    addQuery(`${shortCore} dementi`, 'contradiction_check', selectedSources[0]?.hostname || null);
   } else {
     // Runda 3: szersze zapytania archiwalne/kontekstowe
     const broader = contextKeywords.slice(0, 3).join(' ');

@@ -47,15 +47,41 @@ function createSearchProvider(sourceRegistry, sourceFetcher, options = {}) {
     const activeHosts = new Set(selectedSources.map((s) => s.hostname));
     if (queryObj.target_host) activeHosts.add(queryObj.target_host);
 
-    // 1. Wewnętrzna wyszukiwarka www.gov.pl (potwierdzony endpoint na zatwierdzonym hoście)
+    // 1. Wewnętrzna wyszukiwarka JSON www.gov.pl (potwierdzony endpoint /api/data/search na zatwierdzonym hoście)
     if (activeHosts.has('www.gov.pl') && sourceRegistry.allowedHosts.has('www.gov.pl')) {
-      const govSearchUrl = `https://www.gov.pl/web/gov/szukaj?query=${encodeURIComponent(queryObj.query)}`;
-      const res = await sourceFetcher.fetchUrl(govSearchUrl);
+      const govSearchUrl = `https://www.gov.pl/api/data/search?query=${encodeURIComponent(queryObj.query)}`;
+      const res = await sourceFetcher.fetchUrl(govSearchUrl, { accept: 'application/json' });
       if (res.securityFlags?.length) securityFlags.push(...res.securityFlags);
       if (res.ok) {
-        const links = extractCandidateLinks(res.body, res.finalUrl, sourceRegistry);
-        for (const link of links.slice(0, 6)) {
-          acceptUrl(link.url, link.title, null, 'gov_pl_internal_search');
+        try {
+          const data = JSON.parse(res.body);
+          const results = Array.isArray(data?.results) ? data.results : [];
+          const qWords = String(queryObj.query || '')
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((w) => w.length >= 3);
+
+          // Rankujemy wyniki po trafności tytułu i zajawki względem zapytania
+          const ranked = results
+            .filter((item) => item && typeof item.url === 'string')
+            .map((item) => {
+              const hay = `${item.title || ''} ${item.intro || ''}`.toLowerCase();
+              const score = qWords.reduce((acc, w) => acc + (hay.includes(w.slice(0, Math.max(4, Math.floor(w.length * 0.75)))) ? 1 : 0), 0);
+              return { item, score };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 5);
+
+          for (const { item } of ranked) {
+            const absUrl = new URL(item.url, 'https://www.gov.pl').href;
+            acceptUrl(absUrl, item.title || null, null, 'gov_pl_api_search');
+          }
+        } catch {
+          // Fallback: jeśli mock zwrócił HTML zamiast JSON
+          const links = extractCandidateLinks(res.body, res.finalUrl, sourceRegistry);
+          for (const link of links.slice(0, 5)) {
+            acceptUrl(link.url, link.title, null, 'gov_pl_internal_search');
+          }
         }
       } else if (res.retrievalStatus !== 'not_found') {
         errors.push({

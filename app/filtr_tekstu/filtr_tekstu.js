@@ -19,9 +19,16 @@ const {
   walidujZdjecia,
 } = require('../dodatki/zabezpieczenia');
 
+// Normalizuje adres Ollamy: akceptuje zarówno bazowy "http://host:11434" jak i pełny ".../api/generate"
+function normalizujUrlGenerate(surowyUrl) {
+  const bezSlash = String(surowyUrl || '').trim().replace(/\/+$/, '');
+  if (/\/api\/generate$/i.test(bezSlash)) return bezSlash;
+  return bezSlash.replace(/\/api\/chat$/i, '') + '/api/generate';
+}
+
 // Wszystkie modele stoją na tym samym serwerze Ollama
 const MODELE = {
-  url: process.env.OLLAMA_URL || process.env.OCR_URL || 'http://100.127.211.111:11434/api/generate',
+  url: normalizujUrlGenerate(process.env.OLLAMA_URL || process.env.OCR_URL || 'http://100.127.211.111:11434'),
   ocr: process.env.OCR_MODEL || 'glm-ocr:latest',
   filtr: process.env.FILTR_MODEL || 'qwen3.5:9b',
   maxProb: 3, // 1 próba + 2 powtórki
@@ -227,3 +234,4 @@ const filtrTekstu = {
 
 module.exports = filtrTekstu;
 module.exports.BladKonwersji = BladKonwersji;
+module.exports.normalizujUrlGenerate = normalizujUrlGenerate;

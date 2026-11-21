@@ -177,6 +177,9 @@ function deduplicateEvidence(evidenceList) {
     }
   }
 
+  // Sortujemy od najwyższego dopasowania słów kluczowych (_matchScore), aby najlepszy dokument był pierwszy
+  uniqueItems.sort((a, b) => (b._matchScore || 0) - (a._matchScore || 0));
+
   // Oczyszczenie pól wewnętrznych
   const cleaned = uniqueItems.map((item) => {
     const copy = { ...item };

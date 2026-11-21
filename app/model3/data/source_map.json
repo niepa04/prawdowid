@@ -14,15 +14,16 @@
       "source_type": "official_government",
       "priority": 1,
       "source_role": "warnings",
-      "data_type": "spa_html",
-      "access_method": "spa_requires_js",
+      "data_type": "json_api",
+      "access_method": "json_api",
       "supports_current_information": true,
       "discovered_feed_url": null,
-      "discovered_api_url": null,
+      "discovered_api_url": "https://odyseusz.gov.pl/api/v1/informacje/profile-panstw/mini",
+      "api_adapter": "odyseusz_api",
       "subpages": [],
-      "last_checked": "2026-11-21T14:10:00Z",
-      "accessibility_status": "requires_js_rendering",
-      "limitations": ["Strona jest aplikacją Angular SPA bez statycznej treści ostrzeżeń w HTML i bez potwierdzonego publicznego endpointu REST na hoście."]
+      "last_checked": "2026-11-21T17:06:00Z",
+      "accessibility_status": "accessible",
+      "limitations": ["Dane pobierane z potwierdzonego oficjalnego REST API Odyseusza na zatwierdzonym hoście odyseusz.gov.pl (/api/v1/informacje/profile-panstw/:kodIso oraz /api/v1/informacje/:kodIso/ostrzezenia)."]
     },
     {
       "source_id": "SRC002",
@@ -41,7 +42,10 @@
       "discovered_feed_url": null,
       "discovered_api_url": "https://www.gov.pl/api/data/proxy/rso/komunikatyxml/wszystkie/wszystkie/0?_format=json",
       "api_adapter": "gov_rso_json",
-      "subpages": [],
+      "subpages": [
+        "https://www.gov.pl/api/data/proxy/rso/komunikatyxml/wszystkie/meteorologiczne/0?_format=json",
+        "https://www.gov.pl/api/data/proxy/rso/komunikatyxml/wszystkie/hydrologiczne/0?_format=json"
+      ],
       "last_checked": "2026-11-21T14:14:00Z",
       "accessibility_status": "accessible",
       "limitations": ["Strona HTML renderuje listę dynamicznie w Vue; dane bieżące pobierane są z potwierdzonego endpointu proxy RSO na tym samym hoście www.gov.pl (domyślnie pierwsza strona 20 komunikatów z paginacją)."]
@@ -819,15 +823,16 @@
       "source_type": "official_government",
       "priority": 1,
       "source_role": "warnings",
-      "data_type": "spa_html",
-      "access_method": "spa_requires_js",
+      "data_type": "json_api",
+      "access_method": "json_api",
       "supports_current_information": true,
       "discovered_feed_url": null,
-      "discovered_api_url": null,
+      "discovered_api_url": "https://odyseusz.gov.pl/api/v1/informacje/profile-panstw/mini",
+      "api_adapter": "odyseusz_api",
       "subpages": [],
-      "last_checked": "2026-11-21T14:10:00Z",
-      "accessibility_status": "requires_js_rendering",
-      "limitations": ["Adres zwraca HTTP 302 przekierowanie na https://odyseusz.gov.pl (zatwierdzony host SRC001), który jest aplikacją Angular SPA."]
+      "last_checked": "2026-11-21T17:06:00Z",
+      "accessibility_status": "accessible",
+      "limitations": ["Adres przekierowuje na zatwierdzony host odyseusz.gov.pl (SRC001), z którego dane są pobierane przez oficjalne REST API /api/v1/informacje/ oraz wyszukiwarkę gov.pl."]
     },
     {
       "source_id": "SRC040",

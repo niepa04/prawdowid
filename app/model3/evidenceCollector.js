@@ -1,7 +1,7 @@
 // evidenceCollector.js - Wielorundowe, automatyczne zbieranie dowodów dla pojedynczego twierdzenia
-const { routeClaimToSources } = require('./sourceRouter');
+const { routeClaimToSources, buildClaimContextText } = require('./sourceRouter');
 const { generateQueriesForClaim, extractKeywords } = require('./queryGenerator');
-const { extractContent } = require('./contentExtractor');
+const { extractContent, matchCountriesFromOdyseuszDict } = require('./contentExtractor');
 const { matchDocumentToClaim } = require('./evidenceMatcher');
 const { deduplicateEvidence } = require('./deduplicator');
 
@@ -19,7 +19,7 @@ function scoreLinkRelevance(link, keywords) {
 /**
  * Zbiera materiały z jednego konkretnego źródła (API / RSS / HTML + pasujące podstrony).
  */
-async function collectFromSource(source, claimKeywords, sourceRegistry, sourceFetcher, config) {
+async function collectFromSource(source, claimKeywords, sourceRegistry, sourceFetcher, config, claimContextText = '') {
   const docs = [];
   const errors = [];
   const securityFlags = [];
@@ -87,6 +87,53 @@ async function collectFromSource(source, claimKeywords, sourceRegistry, sourceFe
 
     sourceAccessible = true;
     docs.push(...extracted.documents);
+
+    // Jeśli źródło zwróciło słownik państw Odyseusza (/api/v1/informacje/profile-panstw/mini),
+    // dopasowujemy państwa z twierdzenia i pobieramy ich oficjalne ostrzeżenia oraz profil kraju z odyseusz.gov.pl
+    if (Array.isArray(extracted.odyseuszCountries) && extracted.odyseuszCountries.length > 0) {
+      const matchedCountries = matchCountriesFromOdyseuszDict(
+        extracted.odyseuszCountries,
+        claimContextText || claimKeywords.join(' ')
+      ).slice(0, 3);
+
+      const odyseuszFollowups = [];
+      for (const c of matchedCountries) {
+        odyseuszFollowups.push({
+          url: `https://odyseusz.gov.pl/api/v1/informacje/${encodeURIComponent(c.kodIso)}/ostrzezenia`,
+          countryName: c.nazwa,
+          kodIso: c.kodIso,
+        });
+        odyseuszFollowups.push({
+          url: `https://odyseusz.gov.pl/api/v1/informacje/profile-panstw/${encodeURIComponent(c.kodIso)}`,
+          countryName: c.nazwa,
+          kodIso: c.kodIso,
+        });
+      }
+      if (odyseuszFollowups.length === 0) {
+        odyseuszFollowups.push({
+          url: 'https://odyseusz.gov.pl/api/v1/informacje/strona-glowna/mini',
+          countryName: null,
+          kodIso: null,
+        });
+      }
+
+      for (const item of odyseuszFollowups) {
+        if (visitedUrls.has(item.url) || !sourceRegistry.isUrlAllowed(item.url)) continue;
+        visitedUrls.add(item.url);
+        const fRes = await sourceFetcher.fetchUrl(item.url, { accept: 'application/json' });
+        if (fRes.securityFlags?.length) securityFlags.push(...fRes.securityFlags);
+        if (fRes.ok) {
+          const fExt = extractContent(fRes, source, sourceRegistry);
+          for (const d of fExt.documents) {
+            if (item.countryName && !d.text.toLowerCase().includes(item.countryName.toLowerCase())) {
+              d.title = `MSZ Odyseusz – Ostrzeżenia dla podróżujących: ${item.countryName} (${item.kodIso})`;
+              d.text = `Państwo: ${item.countryName} (${item.kodIso}). ${d.text}`;
+            }
+            docs.push(d);
+          }
+        }
+      }
+    }
 
     for (const link of extracted.links || []) {
       if (!visitedUrls.has(link.url) && sourceRegistry.isUrlAllowed(link.url)) {
@@ -165,6 +212,8 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
         claim: claimText,
         claim_type: claim.type || null,
         related_to: Array.isArray(claim.related_to) ? claim.related_to : [],
+        matched_categories: routing.matchedCategories || [],
+        category_labels: routing.matchedCategoryLabels || [],
         search_status: 'no_suitable_source',
         selected_sources: [],
         queries: [],
@@ -180,6 +229,7 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
   }
 
   const selectedSources = routing.selectedSources;
+  const claimContextText = buildClaimContextText(claim, allClaims);
   const claimKeywords = extractKeywords(claimText, 8);
   let accessibleSourcesCount = 0;
 
@@ -192,10 +242,10 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
     allQueries.push(...roundQueries);
 
     if (round === 1) {
-      // Runda 1: bezpośrednie pobranie z wyselekcjonowanych źródeł (API, RSS, HTML, pomiary)
+      // Runda 1: bezpośrednie pobranie z wyselekcjonowanych źródeł (API, RSS, HTML, pomiary, Odyseusz)
       for (const source of selectedSources) {
         sourcesChecked.add(source.source_id);
-        const col = await collectFromSource(source, claimKeywords, sourceRegistry, sourceFetcher, config);
+        const col = await collectFromSource(source, claimKeywords, sourceRegistry, sourceFetcher, config, claimContextText);
         if (col.securityFlags.length) securityFlags.push(...col.securityFlags);
         if (col.errors.length) errors.push(...col.errors);
 
@@ -320,6 +370,8 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
       claim: claimText,
       claim_type: claim.type || null,
       related_to: Array.isArray(claim.related_to) ? claim.related_to : [],
+      matched_categories: routing.matchedCategories || [],
+      category_labels: routing.matchedCategoryLabels || [],
       search_status: searchStatus,
       selected_sources: selectedSources.map((s) => s.source_id),
       queries: allQueries.map((q) => q.site_scoped_query),

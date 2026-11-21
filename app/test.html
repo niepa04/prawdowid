@@ -1,35 +1,268 @@
 <!doctype html>
-<!-- test.html - tymczasowy frontend do testów, do usunięcia razem z trasą GET / w koma.js -->
+<!-- test.html - czytelny, kontrastowy interfejs testowy KOMA / PRAWDOWID (Model 1 -> 2 -> 3 -> Demagog) -->
 <html lang="pl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prawdowid test</title>
+<title>KOMA / PRAWDOWID – Weryfikacja faktów</title>
 <style>
-  body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 16px; }
-  #edytor { border: 1px solid #999; min-height: 200px; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
-  #edytor:empty::before { content: attr(data-placeholder); color: #888; }
-  #edytor img { max-width: 200px; max-height: 150px; display: block; margin: 4px 0; border: 1px solid #ccc; }
-  button { margin-top: 12px; padding: 8px 20px; }
-  pre { background: #f4f4f4; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+    line-height: 1.5;
+  }
+  h1 { margin: 0 0 4px; font-size: 24px; color: #0f172a; }
+  .lead { margin: 0 0 18px; color: #475569; font-size: 14px; }
+
+  .box {
+    background: #ffffff;
+    border: 2px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+
+  #edytor {
+    border: 2px solid #94a3b8;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #0f172a;
+    min-height: 140px;
+    padding: 12px;
+    font-size: 15px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  #edytor:focus { outline: none; border-color: #0284c7; }
+  #edytor:empty::before { content: attr(data-placeholder); color: #64748b; }
+  #edytor img { max-width: 240px; max-height: 160px; display: block; margin: 8px 0; border: 1px solid #94a3b8; }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 12px;
+  }
+  button {
+    border: 2px solid transparent;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: wait; }
+  .btn-main { background: #0284c7; color: #ffffff; }
+  .btn-main:hover:not(:disabled) { background: #0369a1; }
+  .btn-sec { background: #e2e8f0; color: #0f172a; border-color: #94a3b8; }
+  #czas { margin-left: auto; font-size: 14px; font-weight: 600; color: #334155; }
+
+  /* BANNER WERDYKTU OGÓLNEGO */
+  .banner {
+    padding: 16px 20px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    border: 2px solid #cbd5e1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .banner-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; opacity: 0.85; }
+  .banner-verdict { font-size: 24px; font-weight: 800; margin-top: 2px; }
+  .banner-stats { font-size: 13px; font-weight: 600; }
+
+  .v-potwierdzone { background: #dcfce7; border-color: #16a34a; color: #14532d; }
+  .v-falszywe { background: #fee2e2; border-color: #dc2626; color: #7f1d1d; }
+  .v-wprowadzajace { background: #fef3c7; border-color: #d97706; color: #78350f; }
+  .v-brak { background: #e2e8f0; border-color: #64748b; color: #1e293b; }
+  .v-niepodlega { background: #dbeafe; border-color: #2563eb; color: #1e3a8a; }
+
+  /* ZAKŁADKI */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
+  .tab {
+    background: #f8fafc;
+    color: #334155;
+    border: 2px solid #cbd5e1;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .tab.active { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+
+  /* KARTA POJEDYNCZEGO TWIERDZENIA */
+  .claim-card {
+    background: #ffffff;
+    border: 2px solid #cbd5e1;
+    border-left-width: 8px;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .border-potwierdzone { border-left-color: #16a34a; }
+  .border-falszywe { border-left-color: #dc2626; }
+  .border-wprowadzajace { border-left-color: #d97706; }
+  .border-brak { border-left-color: #64748b; }
+  .border-niepodlega { border-left-color: #2563eb; }
+
+  .claim-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .pill-id { background: #0f172a; color: #ffffff; }
+  .pill-cat { background: #ede9fe; color: #4c1d95; border: 1px solid #a78bfa; text-transform: none; font-size: 13px; }
+  .pill-type { background: #f1f5f9; color: #334155; border: 1px solid #94a3b8; }
+
+  .claim-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 12px;
+  }
+
+  .reason-box {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    color: #0f172a;
+  }
+  .reason-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 4px;
+  }
+
+  .ev-list { margin-top: 10px; }
+  .ev-header {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #334155;
+    margin-bottom: 8px;
+  }
+  .ev-item {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .ev-title { font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+  .ev-meta { font-size: 12px; color: #475569; margin-bottom: 4px; }
+  .ev-quote {
+    margin: 6px 0;
+    padding: 6px 10px;
+    background: #ffffff;
+    border-left: 3px solid #0284c7;
+    color: #1e293b;
+    font-style: italic;
+  }
+  .ev-item a { color: #0369a1; font-weight: 600; word-break: break-all; }
+
+  .warn-box {
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    color: #78350f;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .err-box {
+    background: #fee2e2;
+    border: 2px solid #dc2626;
+    color: #7f1d1d;
+    padding: 14px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  pre {
+    margin: 0;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 14px;
+    border-radius: 8px;
+    overflow: auto;
+    max-height: 600px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+  }
 </style>
 </head>
 <body>
-<h1>Prawdowid - test</h1>
-<p>Wpisz tekst, wklej linki i zdjęcia (Ctrl+V) w jedno pole. Serwer sam je rozdzieli.</p>
+  <h1>KOMA / PRAWDOWID</h1>
+  <p class="lead">Przepływ: <strong>Model 1</strong> (tekst / linki / OCR) → <strong>Model 2</strong> (twierdzenia) → <strong>Model 3</strong> (40 oficjalnych źródeł) → <strong>Demagog</strong> (werdykt i uzasadnienie)</p>
 
-<div id="edytor" contenteditable="true" data-placeholder="Tekst, linki, zdjęcia..."></div>
-<p>Dodaj zdjęcia z dysku: <input type="file" id="pliki" accept="image/*" multiple></p>
+  <div class="box">
+    <div id="edytor" contenteditable="true" data-placeholder="Wpisz informację do sprawdzenia (np. Karol Nawrocki jest prezydentem Polski), wklej link albo zdjęcie (Ctrl+V)..."></div>
+    <div class="controls">
+      <button id="wyslij" class="btn-main">Sprawdź informację</button>
+      <button id="wyczysc" class="btn-sec" type="button">Wyczyść</button>
+      <label style="font-size:13px; font-weight:600;">Zdjęcia z dysku: <input type="file" id="pliki" accept="image/*" multiple></label>
+      <span id="czas">Gotowy.</span>
+    </div>
+  </div>
 
-<button id="wyslij">Wyślij na /api/weryfikuj</button>
-<span id="czas"></span>
-
-<h2>Wynik</h2>
-<pre id="wynik">-</pre>
+  <div id="sekcjaWyniku" class="box" style="display:none;">
+    <div id="bannerOgolny"></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="demagog" type="button">Wynik i uzasadnienie (Demagog)</button>
+      <button class="tab" data-tab="model1" type="button">Model 1 (Tekst)</button>
+      <button class="tab" data-tab="model2" type="button">Model 2 (Twierdzenia)</button>
+      <button class="tab" data-tab="model3" type="button">Model 3 (Dowody JSON)</button>
+      <button class="tab" data-tab="pelny" type="button">Pełny JSON</button>
+      <button id="kopiuj" class="btn-sec" style="margin-left:auto; padding:6px 12px; font-size:12px;" type="button">Kopiuj JSON</button>
+    </div>
+    <div id="widok"></div>
+  </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const edytor = $('edytor');
+let ostatniWynik = null;
+let aktywnaZakladka = 'demagog';
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function klasaWerdyktu(w) {
+  if (w === 'Potwierdzone') return { bg: 'v-potwierdzone', border: 'border-potwierdzone' };
+  if (w === 'Fałszywe') return { bg: 'v-falszywe', border: 'border-falszywe' };
+  if (w === 'Wprowadzające w błąd') return { bg: 'v-wprowadzajace', border: 'border-wprowadzajace' };
+  if (w === 'Nie podlega weryfikacji') return { bg: 'v-niepodlega', border: 'border-niepodlega' };
+  return { bg: 'v-brak', border: 'border-brak' };
+}
 
 function jakoBase64(plik) {
   return new Promise((ok, blad) => {
@@ -49,7 +282,6 @@ async function wstawZdjecia(pliki) {
   }
 }
 
-// Wklejanie: zdjęcia jako <img>, reszta jako czysty tekst (bez formatowania ze stron)
 edytor.addEventListener('paste', async (e) => {
   e.preventDefault();
   const pliki = [...e.clipboardData.files].filter(f => f.type.startsWith('image/'));
@@ -58,8 +290,8 @@ edytor.addEventListener('paste', async (e) => {
 });
 
 $('pliki').onchange = (e) => wstawZdjecia([...e.target.files]);
+$('wyczysc').onclick = () => { edytor.innerHTML = ''; $('pliki').value = ''; };
 
-// Zamienia zawartość edytora na jeden napis: tekst + zdjęcia jako data:image/...;base64,...
 function naTekst(wezel) {
   let wynik = '';
   for (const n of wezel.childNodes) {
@@ -71,21 +303,164 @@ function naTekst(wezel) {
   return wynik;
 }
 
+function renderujDemagog(dane) {
+  const m2Map = new Map((dane.model2?.claims || []).map(c => [c.id, c]));
+  const m3Map = new Map((dane.model3?.claims || []).map(c => [c.claim_id, c]));
+  const lista = dane.demagog?.twierdzenia || [];
+
+  if (lista.length === 0) {
+    return '<div class="warn-box">Model 2 nie wyodrębnił żadnych twierdzeń do sprawdzenia w podanym tekście.</div>';
+  }
+
+  return lista.map(t => {
+    const m2 = m2Map.get(t.claim_id) || {};
+    const m3 = m3Map.get(t.claim_id) || {};
+    const kl = klasaWerdyktu(t.werdykt);
+    const kategorieTekst = (t.kategorie && t.kategorie.length)
+      ? t.kategorie.join(' / ')
+      : 'Brak pasującej kategorii w katalogu 40 źródeł';
+
+    const dowody = m3.evidence || [];
+    const dowodyHtml = dowody.length
+      ? `<div class="ev-list">
+          <div class="ev-header">Zebrane dowody z oficjalnych źródeł (${dowody.length})</div>
+          ${dowody.slice(0, 5).map(ev => `
+            <div class="ev-item">
+              <div class="ev-title">[${esc(ev.source_id)}] ${esc(ev.title || '(bez tytułu)')}</div>
+              <div class="ev-meta">
+                Wydawca: <strong>${esc(ev.publisher || 'brak')}</strong> |
+                Data publikacji: <strong>${esc(ev.published_at || 'brak')}</strong> |
+                Relacja wstępna: <strong>${esc(ev.relation_to_claim)}</strong>
+              </div>
+              ${(ev.relevant_excerpts || []).slice(0, 2).map(ex => `<div class="ev-quote">„${esc(ex)}”</div>`).join('')}
+              <div><a href="${esc(ev.url)}" target="_blank" rel="noopener noreferrer">${esc(ev.url)}</a></div>
+            </div>
+          `).join('')}
+        </div>`
+      : '<div class="ev-meta" style="margin-top:8px;">Nie znaleziono pasujących dokumentów w przeszukanych oficjalnych źródłach.</div>';
+
+    const ogrHtml = (t.ograniczenia || []).length
+      ? `<div class="warn-box"><strong>Ograniczenia / uwagi:</strong> ${esc(t.ograniczenia.join(' • '))}</div>`
+      : '';
+
+    return `
+      <div class="claim-card ${kl.border}">
+        <div class="claim-top">
+          <span class="pill pill-id">${esc(t.claim_id)}</span>
+          <span class="pill ${kl.bg}">WERDYKT: ${esc(t.werdykt)}</span>
+          <span class="pill pill-cat">KATEGORIA: ${esc(kategorieTekst)}</span>
+          ${m2.type ? `<span class="pill pill-type">Typ: ${esc(m2.type)}</span>` : ''}
+          <span class="pill pill-type">Siła dowodów: ${esc(t.sila_dowodow)}</span>
+        </div>
+
+        <p class="claim-text">${esc(t.claim)}</p>
+
+        <div class="reason-box">
+          <div class="reason-label">Uzasadnienie (Demagog)</div>
+          <div>${esc(t.uzasadnienie)}</div>
+        </div>
+
+        ${dowodyHtml}
+        ${ogrHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+function odswiezWidok() {
+  if (!ostatniWynik) return;
+  const widok = $('widok');
+  if (aktywnaZakladka === 'demagog') {
+    widok.innerHTML = renderujDemagog(ostatniWynik);
+  } else if (aktywnaZakladka === 'model1') {
+    widok.innerHTML = `<pre>${esc(ostatniWynik.model1?.tekst || '')}</pre>`;
+  } else if (aktywnaZakladka === 'model2') {
+    widok.innerHTML = `<pre>${esc(JSON.stringify(ostatniWynik.model2, null, 2))}</pre>`;
+  } else if (aktywnaZakladka === 'model3') {
+    widok.innerHTML = `<pre>${esc(JSON.stringify(ostatniWynik.model3, null, 2))}</pre>`;
+  } else {
+    widok.innerHTML = `<pre>${esc(JSON.stringify(ostatniWynik, null, 2))}</pre>`;
+  }
+}
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    aktywnaZakladka = btn.dataset.tab;
+    odswiezWidok();
+  };
+});
+
+$('kopiuj').onclick = async () => {
+  if (!ostatniWynik) return;
+  await navigator.clipboard.writeText(JSON.stringify(ostatniWynik, null, 2));
+  $('czas').textContent = 'Skopiowano JSON do schowka.';
+};
+
 $('wyslij').onclick = async () => {
-  $('wynik').textContent = 'Przetwarzanie... (OCR i filtrowanie mogą potrwać)';
+  const tekst = naTekst(edytor);
+  const btn = $('wyslij');
+  btn.disabled = true;
+  ostatniWynik = null;
+  $('sekcjaWyniku').style.display = 'block';
+  $('bannerOgolny').innerHTML = '';
+  $('widok').innerHTML = '<div class="reason-box">Trwa analiza: Model 1 → Model 2 → Model 3 (40 źródeł) → Demagog...</div>';
+
   const start = Date.now();
+  const timer = setInterval(() => {
+    $('czas').textContent = `Analizuję... ${((Date.now() - start) / 1000).toFixed(1)} s`;
+  }, 200);
+
   try {
     const odp = await fetch('/api/weryfikuj', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tekst: naTekst(edytor) }),
+      body: JSON.stringify({ tekst }),
     });
     const dane = await odp.json();
-    $('wynik').textContent = odp.ok ? dane.tekst : `HTTP ${odp.status}: ${dane.blad}`;
+    if (!odp.ok) {
+      $('widok').innerHTML = `<div class="err-box">Błąd HTTP ${odp.status}${dane.etap ? ` (etap: ${esc(dane.etap)})` : ''}: ${esc(dane.blad || 'Nieznany błąd')}</div>`;
+    } else {
+      ostatniWynik = dane;
+      const kl = klasaWerdyktu(dane.werdykt_ogolny);
+      const m = dane.metadane || {};
+      const dem = dane.demagog || {};
+      const zrodlaGlowneHtml = (dem.glowne_zrodla || []).length
+        ? `<div style="margin-top:10px; font-size:13px;"><strong>Główne oficjalne źródła:</strong><ul style="margin:4px 0 0 18px; padding:0;">${dem.glowne_zrodla
+            .map(z => `<li><strong>[${esc(z.source_id)}] ${esc(z.title || z.publisher || 'Źródło')}</strong> – <a href="${esc(z.url)}" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">${esc(z.url)}</a></li>`)
+            .join('')}</ul></div>`
+        : '';
+
+      $('bannerOgolny').innerHTML = `
+        <div class="banner ${kl.bg}" style="flex-direction:column; align-items:stretch;">
+          <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
+            <div>
+              <div class="banner-title">Główny werdykt (z najważniejszego kontekstu ${esc(dem.glowny_kontekst_id || '')})</div>
+              <div class="banner-verdict">${esc(dane.werdykt_ogolny)}</div>
+            </div>
+            <div class="banner-stats" style="text-align:right;">
+              <div><strong>KATEGORIA: ${esc(dem.kategoria_glowna || 'Brak')}</strong></div>
+              <div>Twierdzeń: ${m.liczba_twierdzen ?? 0} | Dowodów: ${m.liczba_dowodow ?? 0} | Czas: ${((m.czas_calkowity_ms || 0) / 1000).toFixed(1)} s</div>
+            </div>
+          </div>
+          ${dem.glowny_kontekst_twierdzenie ? `<div style="margin-top:8px; font-size:15px; font-weight:700;">Główny kontekst: „${esc(dem.glowny_kontekst_twierdzenie)}”</div>` : ''}
+          <div style="margin-top:6px; padding:12px; background:rgba(255,255,255,0.75); border-radius:8px; font-size:16px; font-weight:600; color:#0f172a;">
+            ${esc(dem.glowna_odpowiedz || '')}
+            ${zrodlaGlowneHtml}
+          </div>
+        </div>
+      `;
+      odswiezWidok();
+    }
+    $('czas').textContent = `Gotowe (${((Date.now() - start) / 1000).toFixed(1)} s)`;
   } catch (e) {
-    $('wynik').textContent = 'Błąd: ' + e.message;
+    $('widok').innerHTML = `<div class="err-box">Błąd połączenia z serwerem: ${esc(e.message)}</div>`;
+    $('czas').textContent = 'Błąd połączenia.';
+  } finally {
+    clearInterval(timer);
+    btn.disabled = false;
   }
-  $('czas').textContent = `${((Date.now() - start) / 1000).toFixed(1)} s`;
 };
 </script>
 </body>
