@@ -155,3 +155,21 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*~
+
+# Local uploads / temp
+uploads/
+tmp/
