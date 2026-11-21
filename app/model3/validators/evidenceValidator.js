@@ -1,4 +1,5 @@
 // evidenceValidator.js - Ścisła walidacja pakietu dowodowego zwracanego przez Model 3
+const { ZAUFANI_FACT_CHECKERZY } = require("../providers/factCheckProvider");
 
 const ALLOWED_GLOBAL_STATUSES = Object.freeze([
   'completed',
@@ -133,7 +134,18 @@ function validateModel3Output(output, sourceRegistry, expectedClaimIds = null) {
       }
 
       // Twarda zapora końcowa: ŻADEN dowód spoza zatwierdzonych hostów nie może znaleźć się w pakiecie!
-      if (sourceRegistry) {
+      // Wyjątek tylko dla ocen z jawnej listy zaufanych fact-checkerów (https)
+      const zaufanyFactChecker =
+        ev.source_id === 'FACTCHECK' &&
+        (() => {
+          try {
+            const u = new URL(ev.url);
+            return u.protocol === 'https:' && ZAUFANI_FACT_CHECKERZY.has(u.hostname.replace(/^www\./, ''));
+          } catch {
+            return false;
+          }
+        })();
+      if (sourceRegistry && !zaufanyFactChecker) {
         const urlCheck = sourceRegistry.validateUrl(ev.url);
         if (!urlCheck.allowed) {
           throw new EvidenceValidationError(

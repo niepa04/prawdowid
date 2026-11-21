@@ -1,4 +1,14 @@
 // koma.js - główny serwer aplikacji KOMA / PRAWDOWID (Model 1 -> Model 2 -> Model 3)
+
+// Ustawienia lokalne (np. GOOGLE_FACTCHECK_API_KEY) z pliku .env w głównym folderze.
+// Musi być przed require modułów, bo część z nich czyta zmienne środowiskowe przy wczytaniu.
+// Zmienne ustawione w terminalu mają pierwszeństwo przed .env.
+try {
+  process.loadEnvFile(require('path').join(__dirname, '..', '.env'));
+} catch {
+  // brak pliku .env - działamy na zmiennych z terminala
+}
+
 const express = require('express');
 const os = require('os');
 const path = require('path');

@@ -4,6 +4,7 @@ const { generateQueriesForClaim, extractKeywords } = require('./queryGenerator')
 const { extractContent, matchCountriesFromOdyseuszDict } = require('./contentExtractor');
 const { matchDocumentToClaim } = require('./evidenceMatcher');
 const { deduplicateEvidence } = require('./deduplicator');
+const { zbierzOcenyFactCheckerow } = require('./providers/factCheckProvider');
 
 function scoreLinkRelevance(link, keywords) {
   const haystack = `${link.title || ''} ${link.url || ''}`.toLowerCase();
@@ -206,6 +207,16 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
 
   if (routing.noSuitableSource || routing.selectedSources.length === 0) {
     if (routing.routingNote) warnings.push(routing.routingNote);
+
+    // Brak pasującego źródła rządowego, ale fakt mógł już ocenić niezależny fact-checker
+    let fcEvidence = [];
+    const weryfikowalne = claim.type !== 'opinion' && claim.type !== 'non_verifiable';
+    if (config.factCheckApiKey && weryfikowalne) {
+      const fc = await zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs || Date.now());
+      fcEvidence = deduplicateEvidence(fc.evidence).evidence;
+      warnings.push(...fc.warnings);
+    }
+
     return {
       claimResult: {
         claim_id: claimId,
@@ -214,11 +225,15 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
         related_to: Array.isArray(claim.related_to) ? claim.related_to : [],
         matched_categories: routing.matchedCategories || [],
         category_labels: routing.matchedCategoryLabels || [],
-        search_status: 'no_suitable_source',
+        search_status: fcEvidence.length > 0 ? 'completed' : 'no_suitable_source',
         selected_sources: [],
         queries: [],
-        evidence: [],
-        coverage: { supporting: 0, contradicting: 0, contextual: 0 },
+        evidence: fcEvidence,
+        coverage: {
+          supporting: fcEvidence.filter((e) => e.relation_to_claim === 'supporting').length,
+          contradicting: fcEvidence.filter((e) => e.relation_to_claim === 'contradicting').length,
+          contextual: fcEvidence.filter((e) => e.relation_to_claim === 'contextual').length,
+        },
         warnings,
         errors,
       },
@@ -322,6 +337,13 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
     if (round === 2 && (hasDirectSupporting || hasContradicting)) {
       break;
     }
+  }
+
+  // Oceny niezależnych fact-checkerów (Google Fact Check Tools API): najwyżej 2 zapytania na twierdzenie
+  if (config.factCheckApiKey) {
+    const fc = await zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs || Date.now());
+    rawEvidence.push(...fc.evidence);
+    warnings.push(...fc.warnings);
   }
 
   // 3. Deduplikacja i wyznaczenie independence_group

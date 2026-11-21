@@ -34,6 +34,8 @@ function getConfig(overrides = {}) {
     sourceMapPath:
       process.env.MODEL3_SOURCE_MAP_PATH ||
       path.join(__dirname, 'data', 'source_map.json'),
+    // Klucz do Google Fact Check Tools API (oceny polskich fact-checkerów); bez niego ten krok jest pomijany
+    factCheckApiKey: process.env.GOOGLE_FACTCHECK_API_KEY || null,
     strictTrustedSources: parseBoolean(process.env.MODEL3_STRICT_TRUSTED_SOURCES, true),
     userAgent:
       process.env.MODEL3_USER_AGENT ||
