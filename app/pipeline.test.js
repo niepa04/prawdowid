@@ -1,9 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { uruchomPipeline, PipelineError } = require('./pipeline');
+const { uruchomPipeline } = require('./pipeline');
 const { normalizujUrlGenerate } = require('./filtr_tekstu/filtr_tekstu');
-const { Model2Error } = require('./rozpoznawacz_kontekstów/model2');
 const { BladWalidacji } = require('./dodatki/zabezpieczenia');
+const { zbierzResearch } = require('./research/researchGatherer');
+const { weryfikujPrawde, sprawdzTeze, werdyktOgolny, wiernyCytat } = require('./weryfikator/weryfikatorPrawdy');
 
 function makeMockResponse({ status = 200, headers = {}, body = '' }) {
   const headerMap = new Map(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
@@ -15,160 +16,170 @@ function makeMockResponse({ status = 200, headers = {}, body = '' }) {
   };
 }
 
-test('normalizujUrlGenerate zapewnia spójność OLLAMA_URL między Modelem 1, 2 i 3', () => {
-  assert.equal(
-    normalizujUrlGenerate('http://100.127.211.111:11434'),
-    'http://100.127.211.111:11434/api/generate'
-  );
-  assert.equal(
-    normalizujUrlGenerate('http://100.127.211.111:11434/'),
-    'http://100.127.211.111:11434/api/generate'
-  );
-  assert.equal(
-    normalizujUrlGenerate('http://100.127.211.111:11434/api/generate'),
-    'http://100.127.211.111:11434/api/generate'
-  );
-  assert.equal(
-    normalizujUrlGenerate('http://100.127.211.111:11434/api/chat'),
-    'http://100.127.211.111:11434/api/generate'
-  );
+// Podstawiony serwer modeli: kolejne odpowiedzi JSON dla kolejnych wywołań /api/chat
+function ollamaZOdpowiedziami(...odpowiedzi) {
+  let i = 0;
+  return async () => {
+    const tresc = odpowiedzi[Math.min(i++, odpowiedzi.length - 1)];
+    return { ok: true, json: async () => ({ done: true, message: { content: JSON.stringify(tresc) } }) };
+  };
+}
+
+test('normalizujUrlGenerate zapewnia spójny adres Ollamy', () => {
+  for (const u of ['http://100.127.211.111:11434', 'http://100.127.211.111:11434/', 'http://100.127.211.111:11434/api/generate', 'http://100.127.211.111:11434/api/chat']) {
+    assert.equal(normalizujUrlGenerate(u), 'http://100.127.211.111:11434/api/generate');
+  }
 });
 
-test('uruchomPipeline spina prawdziwy Model 1 (tekst), Model 2 i prawdziwy Model 3 w jeden spójny wynik', async () => {
+test('uruchomPipeline przekazuje CAŁY tekst do Research Gatherera i Weryfikatora i zwraca format dla frontendu', async () => {
+  let doResearchu = null;
+  let doWeryfikatora = null;
   const wynik = await uruchomPipeline(
-    { tekst: 'CERT Polska ostrzega przed fałszywymi SMS-ami o paczce.' },
+    { tekst: 'W Krakowie bilet kosztuje 8 zł. Czy to najdroższy bilet w Polsce?' },
     {
-      model2Impl: async (tekstPoM1) => {
-        assert.match(tekstPoM1, /===== \[TEKST\] =====/);
-        return {
-          original_text: tekstPoM1,
-          claims: [
-            {
-              id: 'k1',
-              claim: 'CERT Polska ostrzega przed fałszywymi SMS-ami o paczce.',
-              type: 'event',
-              related_to: [],
-              ambiguous: false,
-            },
-          ],
-        };
+      researchImpl: async (t) => {
+        doResearchu = t;
+        return { plan: { temat: 'bilety' }, materialy: [{ nr: 1 }], notatka: { streszczenie: 'x' }, ostrzezenia: [], status: 'completed', czas_ms: 1 };
       },
-      model3: {
-        nowMs: Date.parse('2026-11-21T15:00:00Z'),
-        maxRounds: 1,
-        fetchImpl: async (url) => {
-          if (url === 'https://moje.cert.pl/advisories/feed/') {
-            return makeMockResponse({
-              headers: { 'content-type': 'application/xml' },
-              body: `<?xml version="1.0"?><rss version="2.0"><channel><item>
-                <title>Ostrzeżenie przed fałszywymi SMS-ami o paczce</title>
-                <link>https://moje.cert.pl/komunikaty/sms-paczka</link>
-                <pubDate>Sat, 21 Nov 2026 10:00:00 +0000</pubDate>
-                <description>CERT Polska ostrzega przed fałszywymi SMS-ami o paczce rozsyłanymi przez oszustów.</description>
-              </item></channel></rss>`,
-            });
-          }
-          return makeMockResponse({ headers: { 'content-type': 'text/html' }, body: '<html><body>Inne informacje</body></html>' });
-        },
+      weryfikatorImpl: async (t, r) => {
+        doWeryfikatora = { t, r };
+        return { werdykt_ogolny: 'Potwierdzone', twierdzenia: [{ claim: 'W Krakowie bilet kosztuje 8 zł.', werdykt: 'Potwierdzone', uzyte_zrodla: [] }], czas_ms: 1 };
       },
-      demagog: { useLlm: false },
     }
   );
-
-  assert.deepEqual(wynik.metadane.etapy_ukonczone, ['model1', 'model2', 'model3', 'demagog']);
-  assert.equal(wynik.metadane.liczba_twierdzen, 1);
-  assert.ok(wynik.metadane.liczba_dowodow >= 1);
-  assert.equal(wynik.tekst, wynik.model1.tekst);
-  assert.equal(wynik.model3.claims[0].claim_id, 'k1');
-  assert.ok(wynik.model3.claims[0].category_labels.includes('Cyberbezpieczeństwo'));
-  assert.ok(wynik.model3.claims[0].evidence.some((e) => e.source_id === 'SRC014'));
-  assert.equal(wynik.demagog.twierdzenia[0].werdykt, 'Potwierdzone');
-});
-
-test('uruchomPipeline obsługuje przypadek 0 twierdzeń z Modelu 2 bez błędu', async () => {
-  const wynik = await uruchomPipeline(
-    { tekst: 'Cześć!' },
-    {
-      model2Impl: async (tekstPoM1) => ({ original_text: tekstPoM1, claims: [] }),
-      model3: { maxRounds: 1, fetchImpl: async () => makeMockResponse({ body: '' }) },
-    }
-  );
-
-  assert.equal(wynik.status, 'no_results');
-  assert.equal(wynik.metadane.liczba_twierdzen, 0);
-  assert.equal(wynik.metadane.liczba_dowodow, 0);
-  assert.ok(wynik.metadane.ostrzezenia.length >= 1);
-});
-
-test('uruchomPipeline mapuje timeout Modelu 2 na PipelineError HTTP 504 z etap="model2"', async () => {
-  await assert.rejects(
-    () =>
-      uruchomPipeline(
-        { tekst: 'Testowe zdanie.' },
-        {
-          model2Impl: async () => {
-            throw new Model2Error('Przekroczono limit czasu.', 'TIMEOUT');
-          },
-        }
-      ),
-    (err) => err instanceof PipelineError && err.status === 504 && err.etap === 'model2' && err.kod === 'TIMEOUT'
-  );
+  assert.ok(doResearchu.includes('W Krakowie bilet kosztuje 8 zł. Czy to najdroższy bilet w Polsce?'));
+  assert.equal(doWeryfikatora.t, doResearchu);
+  assert.equal(doWeryfikatora.r.plan.temat, 'bilety');
+  assert.equal(wynik.werdykt_ogolny, 'Potwierdzone');
+  assert.equal(wynik.demagog.twierdzenia.length, 1);
+  assert.equal(wynik.research.materialy.length, 1);
+  assert.deepEqual(wynik.metadane.etapy_ukonczone, ['model1', 'research', 'weryfikator']);
 });
 
 test('uruchomPipeline odrzuca puste zapytanie (400) oraz nieobsługiwany film (501)', async () => {
-  await assert.rejects(
-    () => uruchomPipeline({ tekst: '   ' }),
-    (err) => err instanceof BladWalidacji && err.status === 400
-  );
-
-  await assert.rejects(
-    () => uruchomPipeline({ film: 'video.mp4' }),
-    (err) => err instanceof BladWalidacji && err.status === 501
-  );
+  await assert.rejects(() => uruchomPipeline({ tekst: '   ' }), (err) => err instanceof BladWalidacji && err.status === 400);
+  await assert.rejects(() => uruchomPipeline({ film: 'video.mp4' }), (err) => err instanceof BladWalidacji && err.status === 501);
 });
 
-test('Demagog routing dla "Karol Nawrocki jest prezydentem Polski" wybiera kategorię administracji rządowej i znajduje dowód przez /api/data/search', async () => {
+test('Filtr wstępny zatrzymuje zgłoszenie przed researchem', async () => {
+  let researchWywolany = false;
   const wynik = await uruchomPipeline(
-    { tekst: 'Karol Nawrocki jest prezydentem Polski.' },
+    { tekst: 'KUP TERAZ super promocja!!!' },
     {
-      model2Impl: async (t) => ({
-        original_text: t,
-        claims: [{ id: 'k1', claim: 'Karol Nawrocki jest prezydentem Polski.', type: 'event', related_to: [], ambiguous: false }],
-      }),
-      model3: {
-        nowMs: Date.parse('2026-11-21T15:00:00Z'),
-        maxRounds: 2,
-        fetchImpl: async (url) => {
-          if (url.startsWith('https://www.gov.pl/api/data/search')) {
-            return makeMockResponse({
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({
-                count: 1,
-                results: [
-                  {
-                    title: 'Prezydent RP Karol Nawrocki na uroczystości otwarcia Via Baltica',
-                    intro: 'Karol Nawrocki złożył wizytę jako Prezydent Polski.',
-                    url: '/web/litwa/prezydent-rp-karol-nawrocki',
-                  },
-                ],
-              }),
-            });
-          }
-          if (url === 'https://www.gov.pl/web/litwa/prezydent-rp-karol-nawrocki') {
-            return makeMockResponse({
-              headers: { 'content-type': 'text/html' },
-              body: '<html><head><meta property="article:published_time" content="2025-10-21T09:31:47Z"><title>Prezydent RP Karol Nawrocki</title></head><body><main><p>Prezydent RP Karol Nawrocki reprezentował Polskę podczas uroczystości otwarcia litewskiego odcinka Via Baltica.</p></main></body></html>',
-            });
-          }
-          return makeMockResponse({ headers: { 'content-type': 'text/html' }, body: '<html><body><main><p>Strona główna KPRM.</p></main></body></html>' });
-        },
+      filtrImpl: async () => ({ przepuscic: false, kategoria: 'spam', opis: 'spam lub reklama', powod: 'To reklama.' }),
+      researchImpl: async () => {
+        researchWywolany = true;
+        return {};
       },
-      demagog: { useLlm: false },
+      weryfikatorImpl: async () => ({}),
     }
   );
+  assert.equal(researchWywolany, false);
+  assert.equal(wynik.status, 'rejected');
+  assert.equal(wynik.metadane.odrzucone_przez_filtr, true);
+  assert.match(wynik.demagog.glowna_odpowiedz, /spam/);
+});
 
-  assert.ok(wynik.model3.claims[0].category_labels.includes('Informacje administracji rządowej'));
-  assert.ok(wynik.model3.claims[0].evidence.length >= 1);
-  assert.equal(wynik.werdykt_ogolny, 'Potwierdzone');
-  assert.equal(wynik.demagog.twierdzenia[0].werdykt, 'Potwierdzone');
+test('Research Gatherer: plan -> zbieranie dla każdego pytania + całego zgłoszenia -> scalone materiały (fact-checker pierwszy) -> notatka', async () => {
+  let zapytaniaDoModelu3 = null;
+  const r = await zbierzResearch('Czy ABW zatrzymało ukraińskich szpiegów?', {
+    fetchImpl: ollamaZOdpowiedziami(
+      { temat: 'ABW i szpiedzy', pytania_badawcze: [{ pytanie: 'Czy ABW zatrzymało szpiegów działających dla Ukrainy?', zapytanie: 'ABW szpiedzy Ukraina' }], podmioty: ['ABW'] },
+      { streszczenie: 'ABW zatrzymało szpiegów działających dla Rosji.', ustalenia: [{ pytanie: 'p1', tresc: 'Działali dla Rosji.', zrodla: [1, 99] }], oceny_fact_checkerow: [], luki: [] }
+    ),
+    model3Impl: async (wejscie) => {
+      zapytaniaDoModelu3 = wejscie.claims;
+      const gov = { source_id: 'SRC038', source_type: 'official_government', title: 'ABW: zatrzymani działali na rzecz Rosji', url: 'https://www.gov.pl/a', relevance: 'direct', relevant_excerpts: ['Zatrzymani działali na rzecz Rosji.'] };
+      const fc = { source_id: 'FACTCHECK', source_type: 'fact_checking', title: 'Ocena Demagog: ABW', url: 'https://demagog.org.pl/x', relevance: 'direct', relevant_excerpts: ['ocena: Fałsz'], fact_check_rating: 'Fałsz' };
+      return { status: 'completed', claims: [{ claim_id: 'p1', evidence: [gov, fc] }, { claim_id: 'p0', evidence: [fc] }] };
+    },
+  });
+  assert.deepEqual(zapytaniaDoModelu3.map((c) => c.id), ['p1', 'u1']); // pytanie badawcze + zdanie użytkownika
+  assert.equal(zapytaniaDoModelu3[1].claim, 'Czy ABW zatrzymało ukraińskich szpiegów?');
+  assert.equal(r.materialy.length, 2); // bez duplikatu oceny fact-checkera
+  assert.equal(r.materialy[0].source_id, 'FACTCHECK');
+  assert.equal(r.materialy[0].ocena_fact_checkera, 'Fałsz');
+  assert.deepEqual(r.notatka.ustalenia[0].zrodla, [1]); // nieistniejący materiał 99 odrzucony
+});
+
+test('Research Gatherer z prawdziwym Modelem 3 znajduje komunikat gov.pl przez /api/data/search', async () => {
+  const r = await zbierzResearch('Karol Nawrocki jest prezydentem Polski.', {
+    fetchImpl: ollamaZOdpowiedziami(
+      { temat: 'prezydent', pytania_badawcze: [{ pytanie: 'Karol Nawrocki jest prezydentem Polski.', zapytanie: 'Karol Nawrocki prezydent' }] },
+      { streszczenie: 'ok', ustalenia: [], oceny_fact_checkerow: [], luki: [] }
+    ),
+    model3: {
+      nowMs: Date.parse('2026-11-21T15:00:00Z'),
+      maxRounds: 2,
+      factCheckApiKey: null,
+      fetchImpl: async (url) => {
+        if (url.startsWith('https://www.gov.pl/api/data/search')) {
+          return makeMockResponse({
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ count: 1, results: [{ title: 'Prezydent RP Karol Nawrocki na uroczystości otwarcia Via Baltica', intro: 'Karol Nawrocki złożył wizytę jako Prezydent Polski.', url: '/web/litwa/prezydent-rp-karol-nawrocki' }] }),
+          });
+        }
+        if (url === 'https://www.gov.pl/web/litwa/prezydent-rp-karol-nawrocki') {
+          return makeMockResponse({
+            headers: { 'content-type': 'text/html' },
+            body: '<html><head><title>Prezydent RP Karol Nawrocki</title></head><body><main><p>Prezydent RP Karol Nawrocki reprezentował Polskę podczas uroczystości otwarcia litewskiego odcinka Via Baltica.</p></main></body></html>',
+          });
+        }
+        return makeMockResponse({ headers: { 'content-type': 'text/html' }, body: '<html><body><main><p>Strona główna KPRM.</p></main></body></html>' });
+      },
+    },
+  });
+  assert.ok(r.materialy.some((m) => /Via Baltica/.test(m.fragmenty.join(' ') + m.tytul)));
+});
+
+const M = (nr, extra = {}) => ({ nr, source_id: 'SRC001', tytul: `Materiał ${nr}`, wydawca: 'gov.pl', url: `https://www.gov.pl/${nr}`, fragmenty: [], ...extra });
+
+test('Weryfikator: brak potwierdzenia to nie zaprzeczenie ("Fałszywe" bez dowodu zaprzeczającego -> Brak)', () => {
+  const s = sprawdzTeze({ typ: 'fakt', werdykt: 'Fałszywe', uzasadnienie: 'Nic o tym nie piszą.', dowody: [{ nr: 1, na_temat: true, stanowisko: 'nie_rozstrzyga' }] }, [M(1)]);
+  assert.equal(s.werdykt, 'Brak wystarczających dowodów');
+  assert.deepEqual(s.zrodla, []);
+});
+
+test('Weryfikator: dowody nie na temat nie mogą rozstrzygać (pytanie jest priorytetem)', () => {
+  const s = sprawdzTeze({ typ: 'fakt', werdykt: 'Fałszywe', uzasadnienie: 'Tusk zapowiadał, że nikt nie wejdzie.', dowody: [{ nr: 1, na_temat: false, stanowisko: 'zaprzecza' }] }, [M(1)]);
+  assert.equal(s.werdykt, 'Brak wystarczających dowodów');
+});
+
+test('Weryfikator: ocena fact-checkera na temat rozstrzyga, także dla twierdzenia przeciwnego', () => {
+  const fc = M(1, { ocena_fact_checkera: 'Fałsz', wydawca: 'Demagog' });
+  assert.equal(sprawdzTeze({ typ: 'fakt', werdykt: 'Brak wystarczających dowodów', dowody: [{ nr: 1, na_temat: true, stanowisko: 'nie_rozstrzyga' }] }, [fc]).werdykt, 'Fałszywe');
+  const przeciwne = M(1, { ocena_twierdzenia_przeciwnego: 'Fałsz', oceniane_twierdzenie: 'Szczepionki powodują autyzm', wydawca: 'Demagog' });
+  assert.equal(sprawdzTeze({ typ: 'fakt', werdykt: 'Fałszywe', dowody: [{ nr: 1, na_temat: true, stanowisko: 'zaprzecza' }] }, [przeciwne]).werdykt, 'Potwierdzone');
+  // ocena fact-checkera uznana za nie na temat nie rozstrzyga
+  assert.equal(sprawdzTeze({ typ: 'fakt', werdykt: 'Brak wystarczających dowodów', dowody: [{ nr: 1, na_temat: false }] }, [fc]).werdykt, 'Brak wystarczających dowodów');
+});
+
+test('Weryfikator: opinia -> Nie podlega weryfikacji; werdykt ogólny z tez', () => {
+  assert.equal(sprawdzTeze({ typ: 'opinia', werdykt: 'Potwierdzone' }, []).werdykt, 'Nie podlega weryfikacji');
+  assert.equal(werdyktOgolny([{ werdykt: 'Potwierdzone' }, { werdykt: 'Fałszywe' }]), 'Wprowadzające w błąd');
+  assert.equal(werdyktOgolny([{ werdykt: 'Fałszywe' }, { werdykt: 'Brak wystarczających dowodów' }]), 'Fałszywe');
+  assert.equal(werdyktOgolny([{ werdykt: 'Nie podlega weryfikacji' }]), 'Nie podlega weryfikacji');
+});
+
+test('Weryfikator: cytat zawsze słowo w słowo z tekstu użytkownika', async () => {
+  const tekst = '===== [TEKST] =====\nSłyszałem, że teraz głową państwa jest Nawrocki. Pozdrawiam.';
+  assert.equal(wiernyCytat('Słyszałem, że teraz głową państwa jest Nawrocki', tekst), 'Słyszałem, że teraz głową państwa jest Nawrocki');
+  assert.equal(wiernyCytat('Autor słyszał, że Jarosław Nawrocki jest głową państwa', tekst), 'Słyszałem, że teraz głową państwa jest Nawrocki.');
+
+  const w = await weryfikujPrawde(tekst, { materialy: [M(1, { tytul: 'Prezydent RP Karol Nawrocki' })], notatka: {} }, {
+    fetchImpl: ollamaZOdpowiedziami({
+      tezy: [{ cytat: 'Autor słyszał, że Jarosław Nawrocki jest głową państwa', typ: 'fakt', sedno: 'Nawrocki jest głową państwa', dowody: [{ nr: 1, na_temat: true, stanowisko: 'potwierdza', fragment: 'Prezydent RP Karol Nawrocki' }], werdykt: 'Potwierdzone', uzasadnienie: 'Gov.pl nazywa go Prezydentem RP.', zrodla: [1] }],
+    }),
+  });
+  assert.equal(w.twierdzenia[0].claim, 'Słyszałem, że teraz głową państwa jest Nawrocki.');
+  assert.equal(w.werdykt_ogolny, 'Potwierdzone');
+  assert.equal(w.twierdzenia[0].uzyte_zrodla[0].url, 'https://www.gov.pl/1');
+});
+
+test('Weryfikator: stanowisko bez dosłownego fragmentu z materiału nie rozstrzyga (zmyślony cytat)', () => {
+  const m = M(1, { tytul: 'Komunikat MSZ: zapowiedziano strajk generalny na 20 listopada', fragmenty: ['W dniu 20 listopada zapowiedziano strajk generalny.'] });
+  const zmyslony = sprawdzTeze({ typ: 'fakt', werdykt: 'Fałszywe', dowody: [{ nr: 1, na_temat: true, stanowisko: 'zaprzecza', fragment: 'strajk generalny się nie odbył' }] }, [m]);
+  assert.equal(zmyslony.werdykt, 'Brak wystarczających dowodów');
+  const prawdziwy = sprawdzTeze({ typ: 'fakt', werdykt: 'Potwierdzone', uzasadnienie: 'MSZ informuje o strajku.', dowody: [{ nr: 1, na_temat: true, stanowisko: 'potwierdza', fragment: 'zapowiedziano strajk generalny' }] }, [m]);
+  assert.equal(prawdziwy.werdykt, 'Potwierdzone');
 });

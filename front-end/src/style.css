@@ -362,3 +362,11 @@ a:focus-visible, button:focus-visible, textarea:focus-visible {
   .karta-watku { padding: 14px 14px; }
   .karta-watku__werdykt, .karta-watku__uzasadnienie, .karta-watku .zrodla--male, .karta-watku .szczegoly { margin-left: 0; }
 }
+
+/* Notatka z researchu */
+.notatka { background: var(--tlo-drugie); border-radius: var(--promien); padding: 14px 18px; margin-top: 8px; font-size: 15px; line-height: 1.55; }
+.notatka ul { margin: 4px 0 10px; padding-left: 20px; }
+.notatka p { margin: 6px 0; }
+.notatka__temat { font-weight: 700; }
+.notatka__naglowek { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tekst-slaby); margin-top: 10px; }
+.notatka__przypis { font-size: 13px; font-weight: 700; text-decoration: none; margin-left: 2px; }

@@ -233,7 +233,8 @@ $bmp.Save($env:KOMA_PNG, [System.Drawing.Imaging.ImageFormat]::Png)`;
     console.log(`${ok ? 'OK ' : 'ŹLE'} ${otrzymany} (${Math.round(r.sekundy)} s)`);
 
     const twierdzenia = r.w?.demagog?.twierdzenia || [];
-    const m3 = new Map((r.w?.model3?.claims || []).map((c) => [c.claim_id, c]));
+    const materialy = r.w?.research?.materialy || [];
+    const poUrl = new Map(materialy.map((m) => [m.url, m]));
     const wpis = { ...z, otrzymany, ok, sekundy: r.sekundy, blad: r.blad, twierdzenia, cytowania: [], odrzucone: Boolean(r.w?.metadane?.odrzucone_przez_filtr) };
 
     // cytowania twierdzeń rozstrzygniętych (do pokrycia i poprawności)
@@ -242,8 +243,8 @@ $bmp.Save($env:KOMA_PNG, [System.Drawing.Imaging.ImageFormat]::Png)`;
       const zr = (t.uzyte_zrodla || [])[0];
       const cyt = { teza: t.claim, werdykt: t.werdykt, ma_zrodlo: Boolean(zr), ocena: null };
       if (zr && SEDZIA) {
-        const dowod = (m3.get(t.claim_id)?.evidence || []).find((e) => e.url === zr.url) || {};
-        cyt.zrodlo = { tytul: zr.title, fragment: skroc((dowod.relevant_excerpts || []).join(' ') || zr.title, 600) };
+        const dowod = poUrl.get(zr.url) || {};
+        cyt.zrodlo = { tytul: zr.title, fragment: skroc((dowod.fragmenty || []).join(' ') || zr.title, 600) };
         cyt.ocena = await sedziaCytowania(t.claim, t.werdykt, cyt.zrodlo);
       }
       wpis.cytowania.push(cyt);
@@ -260,10 +261,15 @@ $bmp.Save($env:KOMA_PNG, [System.Drawing.Imaging.ImageFormat]::Png)`;
       continue;
     }
     if (wpis.odrzucone) zapisz(`  Filtr: ${r.w.filtr_wstepny?.opis} – ${r.w.filtr_wstepny?.powod}`);
+    const plan = r.w?.research?.plan;
+    if (plan) {
+      zapisz(`  Research – temat: ${skroc(plan.temat, 150)}`);
+      for (const q of plan.pytania_badawcze || []) zapisz(`    pytanie badawcze: ${skroc(q.pytanie, 150)} [szukano: ${q.zapytanie || '-'}]`);
+      zapisz(`    materiałów: ${materialy.length} | notatka: ${skroc(r.w.research.notatka?.streszczenie, 300)}`);
+    }
     for (const t of twierdzenia) {
-      const c3 = m3.get(t.claim_id) || {};
       zapisz(`  - "${skroc(t.claim, 150)}"`);
-      zapisz(`    werdykt: ${t.werdykt} | metoda: ${t.metoda || '?'} | wyszukiwanie: ${c3.search_status || '?'} | dowodów: ${(c3.evidence || []).length}`);
+      zapisz(`    werdykt: ${t.werdykt} | metoda: ${t.metoda || '?'}`);
       if (t.sedno) zapisz(`    sedno: ${skroc(t.sedno, 200)}`);
       for (const o of t.ocena_dowodow || []) {
         zapisz(`    dowód ${o.nr}: ${o.na_temat ? `NA TEMAT (${o.stanowisko})` : 'nie na temat'} | ${skroc(o.title, 70)} | ${skroc(o.dlaczego, 90)}`);

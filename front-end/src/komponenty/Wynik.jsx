@@ -106,7 +106,64 @@ function Podsumowanie({ watki, nazwaOgolna }) {
   );
 }
 
-// wynik: pełna odpowiedź /api/weryfikuj (pipeline: model1, model2, model3, demagog)
+// Notatka Research Gatherera: co sprawdzaliśmy, co ustaliliśmy (z numerami źródeł) i czego nie
+function NotatkaResearchu({ research }) {
+  const [otwarta, setOtwarta] = useState(false);
+  if (!research?.notatka) return null;
+  const { plan, notatka, materialy = [] } = research;
+  const poNr = new Map(materialy.map((m) => [m.nr, m]));
+  return (
+    <>
+      <button className="rozwin" onClick={() => setOtwarta((o) => !o)} aria-expanded={otwarta}>
+        <span className={`rozwin__strzalka ${otwarta ? 'rozwin__strzalka--otwarta' : ''}`}>
+          <Ikona nazwa="strzalka" rozmiar={16} />
+        </span>
+        Notatka z researchu ({materialy.length} {materialy.length === 1 ? 'materiał' : 'materiałów'})
+      </button>
+      {otwarta && (
+        <div className="notatka">
+          {plan?.temat && <p className="notatka__temat">Temat: {plan.temat}</p>}
+          {plan?.pytania_badawcze?.length > 0 && (
+            <>
+              <div className="notatka__naglowek">Co sprawdzaliśmy</div>
+              <ul>{plan.pytania_badawcze.map((p) => <li key={p.pytanie}>{p.pytanie}</li>)}</ul>
+            </>
+          )}
+          {notatka.streszczenie && <p>{notatka.streszczenie}</p>}
+          {notatka.ustalenia?.length > 0 && (
+            <>
+              <div className="notatka__naglowek">Ustalenia</div>
+              <ul>
+                {notatka.ustalenia.map((u, i) => (
+                  <li key={i}>
+                    {u.tresc}{' '}
+                    {(u.zrodla || []).map((nr) => {
+                      const m = poNr.get(nr);
+                      const url = m && bezpiecznyUrl(m.url);
+                      return url ? (
+                        <a key={nr} href={url} target="_blank" rel="noreferrer noopener" className="notatka__przypis" title={m.tytul}>
+                          [{nr}]
+                        </a>
+                      ) : null;
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {notatka.luki?.length > 0 && (
+            <>
+              <div className="notatka__naglowek">Czego nie udało się ustalić</div>
+              <ul>{notatka.luki.map((l) => <li key={l}>{l}</li>)}</ul>
+            </>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+// wynik: pełna odpowiedź /api/weryfikuj (Model 1 -> Research Gatherer -> Weryfikator Prawdy)
 export default function Wynik({ wynik, onOdNowa }) {
   const [pokazOdczyt, setPokazOdczyt] = useState(false);
   const [skopiowano, setSkopiowano] = useState(false);
@@ -190,6 +247,8 @@ export default function Wynik({ wynik, onOdNowa }) {
           {ostrzezenia.map((o) => <li key={o}>{o}</li>)}
         </ul>
       )}
+
+      <NotatkaResearchu research={wynik.research} />
 
       {wynik.model1?.tekst && (
         <>

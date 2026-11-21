@@ -49,7 +49,7 @@ app.get('/api/status', (req, res) => {
   res.json({
     status: 'ok',
     app: 'prawdowid',
-    pipeline: ['model1', 'model2', 'model3', 'demagog'],
+    pipeline: ['model1', 'filtr_wstepny', 'research_gatherer', 'weryfikator_prawdy'],
     zrodla_oficjalne: zrodla,
   });
 });
@@ -61,7 +61,7 @@ app.get('/api/status', (req, res) => {
 //   "zdjecia": "<base64>"    albo ["<base64>", ...],
 //   "film":    null (jeszcze nieobsługiwany)
 // }
-// Odpowiedź: { status, tekst, model1, model2, model3, metadane }
+// Odpowiedź: { status, werdykt_ogolny, tekst, model1, research, demagog (werdykty), metadane }
 // Górny limit czasu na jedno sprawdzenie: zawieszone zapytanie do serwera modeli nie może
 // blokować użytkownika w nieskończoność (w teście jedno zapytanie wisiało 7,5 minuty).
 const MAX_CZAS_SPRAWDZENIA_MS = Number(process.env.KOMA_MAX_CZAS_MS) || 4 * 60 * 1000;
@@ -84,7 +84,7 @@ app.post('/api/weryfikuj', jsonZapytanie, async (req, res) => {
   }
 
   console.log(
-    `[KOMA] /api/weryfikuj -> werdykt="${wynik.werdykt_ogolny}" | status=${wynik.status} | twierdzeń=${wynik.metadane.liczba_twierdzen} | dowodów=${wynik.metadane.liczba_dowodow} | czasy: M1=${wynik.model1.czas_ms}ms M2=${wynik.model2.czas_ms}ms M3=${wynik.model3.czas_ms}ms DEM=${wynik.demagog.czas_ms}ms`
+    `[KOMA] /api/weryfikuj -> werdykt="${wynik.werdykt_ogolny}" | status=${wynik.status} | tez=${wynik.metadane.liczba_twierdzen} | materiałów=${wynik.metadane.liczba_dowodow} | czasy: M1=${wynik.model1.czas_ms}ms RESEARCH=${wynik.research?.czas_ms ?? 0}ms WERYFIKATOR=${wynik.demagog?.czas_ms ?? 0}ms`
   );
 
   res.json(wynik);
