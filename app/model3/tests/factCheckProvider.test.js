@@ -95,3 +95,26 @@ test('Fact-check: mapowanie ocen, słowa kluczowe i podobieństwo', () => {
   assert.ok(podobienstwo('ABW zatrzymała ukraińskich szpiegów', 'ABW zatrzymało szpiegów działających na rzecz ukraińskich sił specjalnych.') >= 0.6);
   assert.ok(podobienstwo('Karol Nawrocki jest prezydentem Polski', 'Podczas orędzia Karol Nawrocki potwierdził, że Polska jest przygotowywana do wojny z Rosją.') < 0.6);
 });
+
+test('Fact-check: zwraca do przeglądania tylko artykuły Demagoga (https), najbardziej podobne najpierw', async () => {
+  const claim = { id: 'c1', claim: 'ABW zatrzymało szpiegów działających na rzecz Ukrainy.', type: 'fact' };
+  const { wynik } = await zPodstawionymFetch(
+    () =>
+      odpowiedzApi([
+        {
+          text: 'ABW zatrzymało szpiegów działających na rzecz ukraińskich sił specjalnych.',
+          claimReview: [
+            { publisher: { site: 'demagog.org.pl' }, url: 'https://demagog.org.pl/fake_news/abw-szpiedzy/', textualRating: 'Fałsz' },
+            { publisher: { site: 'sprawdzam.afp.com' }, url: 'https://sprawdzam.afp.com/abw', textualRating: 'Fałsz' },
+          ],
+        },
+        {
+          text: 'Budżet ABW jest dwa razy mniejszy od IPN.',
+          claimReview: [{ publisher: { site: 'demagog.org.pl' }, url: 'https://demagog.org.pl/wypowiedzi/budzet-abw/', textualRating: 'Prawda' }],
+        },
+      ]),
+    () => zbierzOcenyFactCheckerow(claim, [claim], getConfig({ factCheckApiKey: 'test' }), Date.now())
+  );
+  assert.deepEqual(wynik.artykuly, ['https://demagog.org.pl/fake_news/abw-szpiedzy/']);
+  assert.ok(wynik.evidence.length >= 1);
+});

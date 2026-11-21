@@ -8,8 +8,8 @@ const { createSourceRegistry, SourceRegistryError } = require('../sourceRegistry
 test('1. Prawidłowe wczytanie wszystkich 40 oficjalnych źródeł z katalogu', () => {
   const registry = createSourceRegistry();
 
-  assert.equal(registry.allSources.length, 40);
-  assert.equal(registry.enabledSources.length, 40);
+  assert.equal(registry.allSources.length, 41); // 40 źródeł rządowych + Demagog
+  assert.equal(registry.enabledSources.length, 41);
   assert.equal(registry.disabledSources.length, 0);
   assert.ok(registry.allowedHosts.has('www.gov.pl'));
   assert.ok(registry.allowedHosts.has('moje.cert.pl'));

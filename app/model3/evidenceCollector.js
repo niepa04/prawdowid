@@ -143,17 +143,29 @@ async function collectFromSource(source, claimKeywords, sourceRegistry, sourceFe
     }
   }
 
-  // Dociąganie najlepiej pasujących podstron artykułów/komunikatów (wyłącznie z dozwolonych hostów)
-  if (candidateSublinks.length > 0) {
-    const ranked = candidateSublinks
+  // Dociąganie podstron warstwami (wyłącznie z dozwolonych hostów).
+  // Poziom 1 = linki ze stron wejściowych, poziom 2 = linki z pobranych podstron itd.
+  // Na każdym poziomie bierzemy najlepiej pasujące do twierdzenia linki (maxSubpagesPerSource),
+  // a łączna liczba podstron ze źródła jest ograniczona przez maxPagesPerSource.
+  const maxDepth = Math.max(1, config.maxCrawlDepth || 1);
+  const maxPages = Math.max(1, config.maxPagesPerSource || config.maxSubpagesPerSource || 4);
+  let pagesFetched = 0;
+  let level = candidateSublinks;
+
+  for (let depth = 1; depth <= maxDepth && level.length > 0 && pagesFetched < maxPages; depth++) {
+    const seenInLevel = new Set();
+    const ranked = level
+      .filter((link) => !visitedUrls.has(link.url) && !seenInLevel.has(link.url) && seenInLevel.add(link.url))
       .map((link) => ({ link, hits: scoreLinkRelevance(link, claimKeywords) }))
       .filter((x) => x.hits > 0)
       .sort((a, b) => b.hits - a.hits)
-      .slice(0, config.maxSubpagesPerSource || 4);
+      .slice(0, Math.min(config.maxSubpagesPerSource || 4, maxPages - pagesFetched));
 
+    const nextLevel = [];
     for (const { link } of ranked) {
       if (visitedUrls.has(link.url)) continue;
       visitedUrls.add(link.url);
+      pagesFetched++;
 
       const subRes = await sourceFetcher.fetchUrl(link.url);
       if (subRes.securityFlags?.length) securityFlags.push(...subRes.securityFlags);
@@ -169,8 +181,16 @@ async function collectFromSource(source, claimKeywords, sourceRegistry, sourceFe
       }
 
       const subExtracted = extractContent(subRes, source, sourceRegistry);
+      for (const d of subExtracted.documents) d.crawl_depth = depth;
       docs.push(...subExtracted.documents);
+
+      if (depth < maxDepth) {
+        for (const l of subExtracted.links || []) {
+          if (!visitedUrls.has(l.url) && sourceRegistry.isUrlAllowed(l.url)) nextLevel.push(l);
+        }
+      }
     }
+    level = nextLevel;
   }
 
   return {
@@ -180,6 +200,42 @@ async function collectFromSource(source, claimKeywords, sourceRegistry, sourceFe
     errors,
     securityFlags,
   };
+}
+
+/**
+ * Oceny niezależnych fact-checkerów (Google Fact Check Tools API) + przeglądanie Demagoga.
+ * Demagog blokuje boty na stronie głównej, w RSS i wyszukiwarce, ale artykuły otwierają się normalnie.
+ * Dlatego adresy pasujących artykułów bierzemy z bazy Google, otwieramy je i schodzimy po linkach
+ * do powiązanych artykułów Demagoga (ten sam mechanizm i limity co dla źródeł rządowych, tylko mniejsze).
+ */
+async function zbierzZFactCheckerow(claim, allClaims, deps, claimKeywords, claimContextText) {
+  const { sourceRegistry, sourceFetcher, config, nowMs } = deps;
+  const wynik = { evidence: [], warnings: [], errors: [], securityFlags: [], sourcesChecked: [] };
+  if (!config.factCheckApiKey) return wynik;
+
+  const fc = await zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs || Date.now());
+  wynik.evidence.push(...fc.evidence);
+  wynik.warnings.push(...fc.warnings);
+
+  const demagog = sourceRegistry.getSourceById('SRC041');
+  const artykuly = (fc.artykuly || [])
+    .filter((url) => sourceRegistry.isUrlAllowed(url))
+    .slice(0, config.maxDemagogArticles || 2);
+  if (!demagog || artykuly.length === 0) return wynik;
+
+  // Artykuły jako strony wejściowe "źródła" Demagog; collectFromSource otworzy je i pójdzie po linkach
+  const zrodlo = { ...demagog, url: artykuly[0], subpages: artykuly.slice(1), discovered_feed_url: null, discovered_api_url: null };
+  const configDemagoga = { ...config, maxSubpagesPerSource: 2, maxPagesPerSource: 3 };
+  const col = await collectFromSource(zrodlo, claimKeywords, sourceRegistry, sourceFetcher, configDemagoga, claimContextText);
+
+  wynik.sourcesChecked.push(demagog.source_id);
+  wynik.errors.push(...col.errors);
+  wynik.securityFlags.push(...col.securityFlags);
+  for (const doc of col.docs) {
+    const matched = matchDocumentToClaim(doc, claim, allClaims, config, { nowMs });
+    if (matched) wynik.evidence.push(matched);
+  }
+  return wynik;
 }
 
 /**
@@ -212,9 +268,12 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
     let fcEvidence = [];
     const weryfikowalne = claim.type !== 'opinion' && claim.type !== 'non_verifiable';
     if (config.factCheckApiKey && weryfikowalne) {
-      const fc = await zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs || Date.now());
+      const fc = await zbierzZFactCheckerow(claim, allClaims, deps, extractKeywords(claimText, 8), buildClaimContextText(claim, allClaims));
       fcEvidence = deduplicateEvidence(fc.evidence).evidence;
       warnings.push(...fc.warnings);
+      errors.push(...fc.errors);
+      securityFlags.push(...fc.securityFlags);
+      fc.sourcesChecked.forEach((s) => sourcesChecked.add(s));
     }
 
     return {
@@ -237,7 +296,7 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
         warnings,
         errors,
       },
-      sourcesChecked: [],
+      sourcesChecked: [...sourcesChecked],
       sourcesUnavailable: [],
       securityFlags,
     };
@@ -339,11 +398,14 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
     }
   }
 
-  // Oceny niezależnych fact-checkerów (Google Fact Check Tools API): najwyżej 2 zapytania na twierdzenie
+  // Oceny niezależnych fact-checkerów i artykuły Demagoga (najwyżej 2 zapytania do API na twierdzenie)
   if (config.factCheckApiKey) {
-    const fc = await zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs || Date.now());
+    const fc = await zbierzZFactCheckerow(claim, allClaims, deps, claimKeywords, claimContextText);
     rawEvidence.push(...fc.evidence);
     warnings.push(...fc.warnings);
+    errors.push(...fc.errors);
+    securityFlags.push(...fc.securityFlags);
+    fc.sourcesChecked.forEach((s) => sourcesChecked.add(s));
   }
 
   // 3. Deduplikacja i wyznaczenie independence_group

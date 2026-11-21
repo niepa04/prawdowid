@@ -854,6 +854,28 @@
       "last_checked": "2026-11-21T14:09:00Z",
       "accessibility_status": "accessible",
       "limitations": ["Komunikaty i aktualności rządowe publikowane w HTML na gov.pl."]
+    },
+    {
+      "source_id": "SRC041",
+      "name": "Demagog – stowarzyszenie fact-checkingowe",
+      "source_url": "https://demagog.org.pl/",
+      "hostname": "demagog.org.pl",
+      "category": "fact_checking",
+      "secondary_categories": [],
+      "topics": [],
+      "source_type": "fact_checking",
+      "priority": 2,
+      "source_role": "fact_checks",
+      "data_type": "html",
+      "access_method": "articles_via_fact_check_api",
+      "supports_current_information": true,
+      "discovered_feed_url": null,
+      "discovered_api_url": null,
+      "api_adapter": null,
+      "subpages": [],
+      "last_checked": "2026-11-21T22:00:00Z",
+      "accessibility_status": "accessible",
+      "limitations": ["Niezależna organizacja fact-checkingowa, nie źródło rządowe.", "Strona główna, RSS i wyszukiwarka są chronione przed botami (Cloudflare 403); artykuły są otwierane bezpośrednio, po adresach z Google Fact Check Tools API."]
     }
   ]
 }

@@ -161,6 +161,10 @@
     {
       "url": "https://www.gov.pl/web/premier",
       "enabled": true
+    },
+    {
+      "url": "https://demagog.org.pl/",
+      "enabled": true
     }
   ]
 }

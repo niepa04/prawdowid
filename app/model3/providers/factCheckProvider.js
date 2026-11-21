@@ -81,6 +81,18 @@ function podobienstwo(a, b) {
   return (2 * wspolne) / (A.size + B.size);
 }
 const MIN_PODOBIENSTWO = 0.6;
+const MIN_PODOBIENSTWO_ARTYKULU = 0.35;
+
+// Fact-checkerzy, których artykuły Model 3 otwiera i czyta (muszą być w katalogu źródeł).
+const HOSTY_PRZEGLADANE = new Set(['demagog.org.pl']);
+function hostPrzegladany(url) {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && HOSTY_PRZEGLADANE.has(u.hostname.replace(/^www\./, ''));
+  } catch {
+    return false;
+  }
+}
 const SLOWA_POMIJANE = new Set([
   'jest', 'są', 'był', 'była', 'było', 'byli', 'będzie', 'oraz', 'przez', 'który', 'która', 'które',
   'jako', 'tego', 'tylko', 'nie', 'się', 'dla', 'pod', 'nad', 'przy', 'jak', 'też', 'ten', 'tej', 'ich',
@@ -108,7 +120,7 @@ async function zapytajApi(query, apiKey) {
  */
 async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
   const apiKey = config.factCheckApiKey;
-  if (!apiKey) return { evidence: [], warnings: [] };
+  if (!apiKey) return { evidence: [], warnings: [], artykuly: [] };
 
   let wyniki = [];
   try {
@@ -121,13 +133,23 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
       if (wyniki.length > 0) break;
     }
   } catch (err) {
-    return { evidence: [], warnings: [`Baza fact-checkerów Google była niedostępna (${err.message}).`] };
+    return { evidence: [], warnings: [`Baza fact-checkerów Google była niedostępna (${err.message}).`], artykuly: [] };
   }
 
   const evidence = [];
+  const artykuly = []; // { url, podobne } - artykuły z hostów przeglądanych przez Model 3 (Demagog)
   for (const c of wyniki) {
-    // Ocena dotyczy innego twierdzenia, które tylko dzieli z naszym kilka słów
     const podobne = podobienstwo(claim.claim, c.text);
+
+    // Artykuły na pokrewny temat warto przeczytać, nawet jeśli dotyczą nieco innego twierdzenia:
+    // ich treść i tak przechodzi później przez zwykły matcher Modelu 3.
+    if (podobne >= MIN_PODOBIENSTWO_ARTYKULU) {
+      for (const r of c.claimReview || []) {
+        if (r?.url && hostPrzegladany(r.url)) artykuly.push({ url: r.url, podobne });
+      }
+    }
+
+    // Ocena dotyczy innego twierdzenia, które tylko dzieli z naszym kilka słów
     if (podobne < MIN_PODOBIENSTWO) continue;
     for (const r of c.claimReview || []) {
       if (!r?.url || !hostZaufany(r.url)) continue;
@@ -138,7 +160,7 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
       const doc = {
         source_id: 'FACTCHECK',
         source_url: `https://${r.publisher?.site || new URL(r.url).hostname}/`,
-        title: r.title || c.text,
+        title: `Ocena ${wydawca}: ${r.title || c.text}`,
         publisher: wydawca,
         published_at: r.reviewDate || c.claimDate || null,
         retrieved_at: new Date(nowMs).toISOString(),
@@ -163,7 +185,19 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
   }
 
   evidence.sort((a, b) => (b._matchScore || 0) - (a._matchScore || 0));
-  return { evidence: evidence.slice(0, FACTCHECK_MAX_DOWODOW), warnings: [] };
+  const unikalneArtykuly = [...new Map(artykuly.sort((a, b) => b.podobne - a.podobne).map((a) => [a.url, a])).values()];
+  return {
+    evidence: evidence.slice(0, FACTCHECK_MAX_DOWODOW),
+    warnings: [],
+    artykuly: unikalneArtykuly.map((a) => a.url),
+  };
 }
 
-module.exports = { zbierzOcenyFactCheckerow, ZAUFANI_FACT_CHECKERZY, relacjaZOceny, charakterystyczneSlowa, podobienstwo };
+module.exports = {
+  zbierzOcenyFactCheckerow,
+  ZAUFANI_FACT_CHECKERZY,
+  HOSTY_PRZEGLADANE,
+  relacjaZOceny,
+  charakterystyczneSlowa,
+  podobienstwo,
+};

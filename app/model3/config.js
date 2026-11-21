@@ -24,7 +24,13 @@ function getConfig(overrides = {}) {
     maxConcurrency: parsePositiveInt(process.env.MODEL3_MAX_CONCURRENCY, 4),
     maxDocumentSize: parsePositiveInt(process.env.MODEL3_MAX_DOCUMENT_SIZE, 2 * 1024 * 1024), // 2 MB
     maxRedirects: parsePositiveInt(process.env.MODEL3_MAX_REDIRECTS, 5),
-    maxSubpagesPerSource: parsePositiveInt(process.env.MODEL3_MAX_SUBPAGES_PER_SOURCE, 4),
+    maxSubpagesPerSource: parsePositiveInt(process.env.MODEL3_MAX_SUBPAGES_PER_SOURCE, 4), // na jeden poziom
+    // Jak głęboko schodzić po linkach w zaufanych źródłach (1 = tylko linki ze strony wejściowej)
+    maxCrawlDepth: parsePositiveInt(process.env.MODEL3_MAX_CRAWL_DEPTH, 2),
+    // Łączny limit podstron pobieranych z jednego źródła (wszystkie poziomy razem)
+    maxPagesPerSource: parsePositiveInt(process.env.MODEL3_MAX_PAGES_PER_SOURCE, 10),
+    // Przeglądanie Demagoga: ile artykułów otworzyć na twierdzenie (znalezionych przez bazę Google)
+    maxDemagogArticles: parsePositiveInt(process.env.MODEL3_MAX_DEMAGOG_ARTICLES, 2),
     maxSourcesPerClaim: parsePositiveInt(process.env.MODEL3_MAX_SOURCES_PER_CLAIM, 6),
     staleWarningAgeDays: parsePositiveInt(process.env.MODEL3_STALE_WARNING_AGE_DAYS, 14),
     staleMeasurementAgeHours: parsePositiveInt(process.env.MODEL3_STALE_MEASUREMENT_AGE_HOURS, 24),
