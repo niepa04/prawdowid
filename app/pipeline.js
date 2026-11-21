@@ -17,28 +17,46 @@ class PipelineError extends Error {
   }
 }
 
-// Model 2 mimo zasad w prompcie zamienia pytania o fakty na "Pytanie dotyczy tego, czy X" /
-// "Autor tekstu pyta, czy X" i oznacza je jako "non_verifiable" - wtedy werdykt zapadał z góry
-// ("Nie podlega weryfikacji") bez sprawdzania. Tu zamieniamy je z powrotem na twierdzenie X
-// i traktujemy jako fakt. Usuwamy też wstępy "Autor słyszał, że" / "Istnieje twierdzenie, że",
-// które utrudniały wyszukiwanie (typ twierdzenia zostaje bez zmian).
-const WSTEP_PYTANIA = /^\s*(pytanie\s+dotyczy\s+(tego,?\s*)?czy|(autor\w*|użytkownik\w*)(\s+tekstu)?\s+(pyta|zastanawia\s+się|dopytuje|chce\s+wiedzieć),?\s*czy|czy)\s+/i;
-const WSTEP_RELACJI = /^\s*((autor\w*|użytkownik\w*)(\s+tekstu)?\s+(słyszał\w*|czytał\w*|twierdzi|informuje)|istnieje\s+twierdzenie|krąży\s+informacja|mówi\s+się),?\s*(że|iż)\s+/i;
+// SŁOWA UŻYTKOWNIKA ZOSTAJĄ BEZ ZMIAN.
+// Model 2 przeredagowuje twierdzenia ("Autor tekstu słyszał, że...", "Pytanie dotyczy tego, czy...",
+// dopisane imiona, pytania zamienione na stwierdzenia) i rozbija jedno zdanie na kilka przerobionych
+// części. Dalej (wyszukiwanie, werdykt, ekran) idzie WYŁĄCZNIE oryginalny fragment tekstu
+// użytkownika (source_text) - jedno zdanie użytkownika = jedno twierdzenie, słowo w słowo.
+// Z Modelu 2 bierzemy tylko podział na zdania i typ (fakt / opinia).
+const PYTANIE = /^\s*czy\s|\?\s*$/i;
+const ZASLYSZANE = /^\s*(słyszał\w*|czytał\w*|podobno|ponoć|mówi\s+się|krąży\s+informacja|widział\w*)\b/i;
+const TYPY_NIEFAKTOWE = new Set(['opinion', 'non_verifiable']);
 
-function naprawTwierdzenie(claim) {
-  if (!claim || typeof claim.claim !== 'string') return claim;
-  const zWielkiej = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-  let tekst = claim.claim;
-  let typ = claim.type;
-
-  if (WSTEP_PYTANIA.test(tekst)) {
-    tekst = tekst.replace(WSTEP_PYTANIA, '').replace(/\?+\s*$/, '.');
-    if (typ === 'non_verifiable' || typ === 'opinion') typ = 'event';
-  } else if (WSTEP_RELACJI.test(tekst)) {
-    tekst = tekst.replace(WSTEP_RELACJI, '');
+function zachowajSlowaUzytkownika(claims) {
+  const grupy = new Map(); // oryginalny fragment -> twierdzenia Modelu 2 z niego wydzielone
+  for (const c of claims || []) {
+    const zrodlo = typeof c?.source_text === 'string' && c.source_text.trim() ? c.source_text.trim() : String(c?.claim || '').trim();
+    if (!zrodlo) continue;
+    if (!grupy.has(zrodlo)) grupy.set(zrodlo, []);
+    grupy.get(zrodlo).push(c);
   }
-  tekst = zWielkiej(tekst.trim());
-  return tekst === claim.claim && typ === claim.type ? claim : { ...claim, claim: tekst, type: typ };
+
+  const wynik = [];
+  for (const [zrodlo, czesci] of grupy) {
+    const pierwszy = czesci[0];
+    // Typ: fakt, jeśli którakolwiek część była faktem, albo jeśli to pytanie o fakt / zasłyszana informacja.
+    // Opinia tylko wtedy, gdy wszystkie części Model 2 uznał za opinię i nie jest to pytanie.
+    const faktowa = czesci.find((c) => !TYPY_NIEFAKTOWE.has(c.type) && c.type !== 'attribution');
+    let typ = faktowa ? faktowa.type : pierwszy.type;
+    if (PYTANIE.test(zrodlo) || ZASLYSZANE.test(zrodlo) || typ === 'attribution') {
+      typ = faktowa ? faktowa.type : 'event';
+    }
+    wynik.push({
+      ...pierwszy,
+      claim: zrodlo,
+      source_text: zrodlo,
+      type: typ,
+      related_to: [],
+      ambiguous: czesci.some((c) => c.ambiguous),
+      ambiguity: czesci.map((c) => c.ambiguity).filter(Boolean).join(' ') || pierwszy.ambiguity,
+    });
+  }
+  return wynik;
 }
 
 function mapujBladModelu2(err) {
@@ -138,7 +156,7 @@ async function uruchomPipeline(body, options = {}) {
   }
   const czasModel2Ms = Date.now() - t2;
   etapyUkonczone.push('model2');
-  wynikModelu2.claims = (wynikModelu2.claims || []).map(naprawTwierdzenie);
+  wynikModelu2.claims = zachowajSlowaUzytkownika(wynikModelu2.claims);
 
   if (!wynikModelu2.claims || wynikModelu2.claims.length === 0) {
     ostrzezenia.push('Model 2 nie wyodrębnił żadnych twierdzeń do weryfikacji w przesłanym materiale.');
@@ -211,5 +229,5 @@ async function uruchomPipeline(body, options = {}) {
 module.exports = {
   PipelineError,
   uruchomPipeline,
-  naprawTwierdzenie,
+  zachowajSlowaUzytkownika,
 };
