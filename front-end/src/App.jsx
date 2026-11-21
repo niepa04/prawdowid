@@ -1,0 +1,91 @@
+import { useState } from 'react';
+import PoleWejscia from './komponenty/PoleWejscia.jsx';
+import Sprawdzanie from './komponenty/Sprawdzanie.jsx';
+import Wynik from './komponenty/Wynik.jsx';
+import Ikona from './komponenty/Ikona.jsx';
+import { PRZYKLADOWY_WYNIK } from './przykladowyWynik.js';
+
+// Trzy etapy strony: wpisywanie -> sprawdzanie -> wynik.
+// Na razie nic nie jest podpięte do serwera, sprawdzanie jest symulowane.
+export default function App() {
+  const [etap, setEtap] = useState('wpisywanie');
+  const [zgloszenie, setZgloszenie] = useState(null);
+
+  function sprawdz(dane) {
+    setZgloszenie(dane);
+    setEtap('sprawdzanie');
+  }
+
+  function odNowa() {
+    setZgloszenie(null);
+    setEtap('wpisywanie');
+  }
+
+  return (
+    <div className="strona">
+      <header className="gora">
+        <div className="szerokosc gora__wnetrze">
+          <button className="znak" onClick={odNowa} aria-label="Koma, strona główna">
+            <span className="znak__kwadrat">K</span>
+            <span className="znak__nazwa">Koma</span>
+          </button>
+          <nav className="gora__menu">
+            <a href="#jak-to-dziala">Jak to działa</a>
+            <a href="#o-projekcie">O projekcie</a>
+          </nav>
+        </div>
+      </header>
+
+      <main className="szerokosc tresc">
+        <div className="naglowek">
+          <h1 className="logo">Koma</h1>
+          <p className="rozwiniecie">
+            <strong>K</strong>oniec <strong>o</strong>szustw, <strong>m</strong>anipulacji i <strong>a</strong>bsurdów
+          </p>
+          <p className="haslo">Sprawdź, zanim udostępnisz</p>
+        </div>
+
+        <section className="panel">
+          {etap === 'wpisywanie' && <PoleWejscia onSprawdz={sprawdz} />}
+          {etap === 'sprawdzanie' && (
+            <Sprawdzanie zgloszenie={zgloszenie} onKoniec={() => setEtap('wynik')} />
+          )}
+          {etap === 'wynik' && <Wynik wynik={PRZYKLADOWY_WYNIK} onOdNowa={odNowa} />}
+        </section>
+
+        {etap === 'wpisywanie' && (
+          <section className="baner" id="jak-to-dziala">
+            <h2 className="baner__tytul">Jak działa Koma?</h2>
+            <ol className="kroki">
+              <li className="krok">
+                <span className="krok__ikona"><Ikona nazwa="plik" rozmiar={22} /></span>
+                <strong>Wklej informację</strong>
+                <span>Tekst, link do artykułu albo zrzut ekranu z mediów społecznościowych.</span>
+              </li>
+              <li className="krok">
+                <span className="krok__ikona"><Ikona nazwa="lupa" rozmiar={22} /></span>
+                <strong>Koma ją przeanalizuje</strong>
+                <span>Odczyta tekst ze zdjęć, pobierze artykuły i wybierze to, co dotyczy tematu.</span>
+              </li>
+              <li className="krok">
+                <span className="krok__ikona"><Ikona nazwa="tarcza" rozmiar={22} /></span>
+                <strong>Dostaniesz werdykt</strong>
+                <span>Porówna podane informacje ze zweryfikowaną bazą faktów, na podstawie której dowiesz się prawdy.</span>
+              </li>
+            </ol>
+          </section>
+        )}
+      </main>
+
+      <footer className="dol" id="o-projekcie">
+        <div className="szerokosc">
+          <nav className="dol__linki">
+            <a href="#o-projekcie">O projekcie</a>
+            <a href="#jak-to-dziala">Jak to działa</a>
+            <a href="#kontakt">Kontakt</a>
+          </nav>
+        </div>
+      </footer>
+    </div>
+  );
+}

@@ -1,0 +1,288 @@
+/* Jasny, niebieski motyw Komy. Kolory w jednym miejscu, żeby łatwo je zmieniać. */
+:root {
+  --tlo: #ffffff;
+  --tlo-drugie: #f5f8fc;
+  --tekst: #101317;
+  --tekst-drugi: #4a5361;
+  --tekst-slaby: #7b8494;
+  --ramka: #dde3ec;
+  --ramka-mocna: #9aa7ba;
+
+  --niebieski: #0452a8;          /* główny kolor: logo, przycisk, linki */
+  --niebieski-hover: #033f82;
+  --niebieski-jasny: #e8f1fb;    /* tła, zaznaczenia */
+  --niebieski-bardzo-jasny: #f2f7fd;
+  --niebieski-tekst: #03407f;
+
+  --prawda: #e4f5ea;        --prawda-tekst: #1d6b3a;      --prawda-mocny: #3fa66a;
+  --czesciowo: #fdf3dc;     --czesciowo-tekst: #855600;   --czesciowo-mocny: #f0b429;
+  --manipulacja: #fde9dc;   --manipulacja-tekst: #963f10; --manipulacja-mocny: #ef8a4c;
+  --falsz: #fce8e6;         --falsz-tekst: #a3271f;       --falsz-mocny: #d9534a;
+
+  --blad: #b3261e;
+  --promien: 8px;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--tlo);
+  color: var(--tekst);
+  font-family: 'Open Sans', system-ui, sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; cursor: pointer; }
+a { color: var(--niebieski); }
+a:focus-visible, button:focus-visible, textarea:focus-visible {
+  outline: 3px solid #f5b400;   /* wyraźny fokus dla klawiatury */
+  outline-offset: 2px;
+}
+
+.strona { min-height: 100vh; display: flex; flex-direction: column; }
+.szerokosc { width: 100%; max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+/* Górny pasek */
+.gora { border-bottom: 1px solid var(--ramka); }
+.gora__wnetrze { display: flex; align-items: center; justify-content: space-between; height: 76px; }
+.znak { display: inline-flex; align-items: center; gap: 10px; border: 0; background: none; padding: 0; color: var(--tekst); }
+.znak__kwadrat {
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--niebieski); color: #fff;
+  border-radius: 8px;
+  font-weight: 800; font-size: 20px;
+}
+.znak__nazwa { font-weight: 700; font-size: 22px; }
+.gora__menu { display: flex; gap: 24px; }
+.gora__menu a { font-weight: 700; text-decoration: none; }
+.gora__menu a:hover { text-decoration: underline; }
+
+/* Treść */
+.tresc { flex: 1; padding-top: 48px; padding-bottom: 56px; }
+.naglowek { max-width: 760px; margin: 0 auto 28px; }
+.logo {
+  margin: 0;
+  font-size: clamp(56px, 11vw, 96px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--niebieski);
+}
+.rozwiniecie { margin: 10px 0 0; font-size: 17px; color: var(--tekst-drugi); }
+.rozwiniecie strong { color: var(--niebieski); font-weight: 800; }
+.haslo { margin: 18px 0 0; font-size: clamp(24px, 4.4vw, 34px); font-weight: 700; letter-spacing: -0.01em; }
+
+.panel { max-width: 760px; margin: 0 auto; }
+
+/* Pole wejścia */
+.pole {
+  border: 1px solid var(--ramka-mocna);
+  border-radius: var(--promien);
+  background: var(--tlo);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pole:focus-within { border-color: var(--niebieski); box-shadow: 0 0 0 3px var(--niebieski-jasny); }
+.pole--przeciaganie { border-style: dashed; border-color: var(--niebieski); background: var(--niebieski-bardzo-jasny); }
+.pole--blad { border-color: var(--blad); }
+
+.pole__tekst {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: 0 !important;
+  resize: vertical;
+  min-height: 120px;
+  padding: 16px 18px 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--tekst);
+}
+.pole__tekst::placeholder { color: var(--tekst-slaby); }
+
+.kafelki { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 18px 10px; }
+.kafelek {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  font-size: 13px; font-weight: 600;
+}
+.kafelek--link { background: var(--niebieski-jasny); color: var(--niebieski-tekst); }
+.kafelek--zdjecie { background: var(--tlo-drugie); color: var(--tekst-drugi); border: 1px solid var(--ramka); padding-left: 4px; }
+.kafelek__miniatura { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+.kafelek__usun {
+  display: inline-flex; border: 0; background: transparent; color: inherit;
+  padding: 3px; border-radius: 50%; opacity: 0.7;
+}
+.kafelek__usun:hover { opacity: 1; background: rgba(0, 0, 0, 0.06); }
+
+.pole__dol {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--ramka);
+  background: var(--tlo-drugie);
+  border-radius: 0 0 var(--promien) var(--promien);
+}
+.pole__podpowiedz { font-size: 13px; color: var(--tekst-slaby); }
+.pole__licznik { margin-left: auto; font-size: 13px; color: var(--tekst-drugi); font-weight: 600; }
+
+.przycisk-maly {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--ramka); background: var(--tlo);
+  color: var(--niebieski); font-size: 14px; font-weight: 700;
+  padding: 6px 12px; border-radius: 6px;
+}
+.przycisk-maly:hover { border-color: var(--niebieski); }
+
+.blad { color: var(--blad); font-size: 14px; font-weight: 600; margin: 8px 2px 0; }
+
+.przycisk-glowny {
+  display: block;
+  margin: 24px auto 0;
+  min-width: min(100%, 360px);
+  border: 0;
+  border-radius: var(--promien);
+  background: var(--niebieski);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+  padding: 16px 40px;
+  transition: background 0.15s;
+}
+.przycisk-glowny:hover { background: var(--niebieski-hover); }
+
+.zalety {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px;
+  list-style: none; padding: 0; margin: 20px 0 0;
+  font-size: 14px; color: var(--tekst-drugi);
+}
+.zalety li { display: inline-flex; align-items: center; gap: 6px; }
+.zalety svg { color: var(--niebieski); }
+
+/* Baner "Jak działa Koma?" */
+.baner {
+  max-width: 1040px;
+  margin: 56px auto 0;
+  background: var(--niebieski-bardzo-jasny);
+  border: 1px solid var(--niebieski-jasny);
+  border-radius: 16px;
+  padding: 36px 40px 40px;
+}
+.baner__tytul { margin: 0 0 24px; font-size: 26px; font-weight: 700; text-align: center; }
+.kroki { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.krok { display: flex; flex-direction: column; gap: 6px; font-size: 15px; line-height: 1.5; color: var(--tekst-drugi); }
+.krok strong { color: var(--tekst); font-size: 17px; }
+.krok__ikona {
+  width: 44px; height: 44px; margin-bottom: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--tlo); color: var(--niebieski);
+  border: 1px solid var(--niebieski-jasny); border-radius: 12px;
+}
+
+/* Sprawdzanie */
+.sprawdzanie { padding: 8px 0; }
+.postep { height: 8px; border-radius: 999px; background: var(--niebieski-jasny); overflow: hidden; }
+.postep__pasek { height: 100%; background: var(--niebieski); border-radius: 999px; transition: width 0.5s ease; }
+.etapy { list-style: none; padding: 0; margin: 24px 0 0; display: flex; flex-direction: column; gap: 14px; }
+.etap { display: flex; align-items: center; gap: 12px; font-size: 17px; }
+.etap__znak {
+  width: 24px; height: 24px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 2px solid var(--ramka);
+}
+.etap--gotowe { color: var(--tekst-drugi); }
+.etap--gotowe .etap__znak { background: var(--niebieski); border-color: var(--niebieski); color: #fff; }
+.etap--trwa { font-weight: 700; }
+.etap--trwa .etap__znak { border-color: var(--niebieski-jasny); }
+.etap--czeka { color: var(--tekst-slaby); }
+.krecik {
+  width: 14px; height: 14px;
+  border: 2px solid var(--niebieski); border-right-color: transparent;
+  border-radius: 50%;
+  animation: obrot 0.7s linear infinite;
+}
+@keyframes obrot { to { transform: rotate(360deg); } }
+
+/* Wynik */
+.werdykt { border-radius: 12px; padding: 20px 24px; }
+.werdykt__etykieta { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.85; }
+.werdykt__nazwa { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; margin-top: 2px; }
+.werdykt__opis { font-size: 15px; margin-top: 2px; }
+.werdykt--prawda { background: var(--prawda); color: var(--prawda-tekst); }
+.werdykt--czesciowo { background: var(--czesciowo); color: var(--czesciowo-tekst); }
+.werdykt--manipulacja { background: var(--manipulacja); color: var(--manipulacja-tekst); }
+.werdykt--falsz { background: var(--falsz); color: var(--falsz-tekst); }
+
+.skala { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 18px 0 4px; }
+.skala__krok { font-size: 12px; color: var(--tekst-slaby); text-align: center; }
+.skala__pasek { height: 8px; border-radius: 999px; background: var(--ramka); margin-bottom: 6px; }
+.skala__krok--falsz .skala__pasek { background: var(--falsz-mocny); }
+.skala__krok--manipulacja .skala__pasek { background: var(--manipulacja-mocny); }
+.skala__krok--czesciowo .skala__pasek { background: var(--czesciowo-mocny); }
+.skala__krok--prawda .skala__pasek { background: var(--prawda-mocny); }
+.skala__krok[class*='--'] { color: var(--tekst); font-weight: 700; }
+
+.wyjasnienie { font-size: 18px; line-height: 1.6; margin: 20px 0 28px; }
+
+.podtytul { font-size: 15px; font-weight: 700; margin: 0 0 10px; color: var(--tekst-drugi); }
+.zrodla { list-style: none; padding: 0; margin: 0; border: 1px solid var(--ramka); border-radius: var(--promien); }
+.zrodlo { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.zrodlo + .zrodlo { border-top: 1px solid var(--ramka); }
+.zrodlo__tytul { display: inline-flex; align-items: center; gap: 6px; color: var(--niebieski); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.zrodlo__tytul:hover { color: var(--niebieski-hover); }
+.zrodlo__tytul svg { flex: none; }
+
+.plakietka { margin-left: auto; flex: none; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.plakietka--prawda { background: var(--prawda); color: var(--prawda-tekst); }
+.plakietka--czesciowo { background: var(--czesciowo); color: var(--czesciowo-tekst); }
+.plakietka--manipulacja { background: var(--manipulacja); color: var(--manipulacja-tekst); }
+.plakietka--falsz { background: var(--falsz); color: var(--falsz-tekst); }
+
+.rozwin {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 20px; padding: 6px 0;
+  border: 0; background: transparent;
+  color: var(--niebieski); font-weight: 700; font-size: 15px;
+}
+.rozwin:hover { text-decoration: underline; }
+.rozwin__strzalka { display: inline-flex; transform: rotate(-90deg); transition: transform 0.15s; }
+.rozwin__strzalka--otwarta { transform: rotate(0); }
+
+.odczytano { background: var(--tlo-drugie); border-radius: var(--promien); padding: 14px 18px; margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
+.odczytano__nazwa { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tekst-slaby); }
+.odczytano__tekst { margin: 2px 0 0; font-size: 15px; line-height: 1.55; white-space: pre-wrap; }
+
+.akcje { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--ramka); }
+.przycisk-drugi {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--ramka); background: var(--tlo);
+  color: var(--niebieski); font-weight: 700; font-size: 15px;
+  padding: 10px 16px; border-radius: var(--promien);
+}
+.przycisk-drugi:hover { border-color: var(--niebieski); }
+.przycisk-drugi--glowny { margin-left: auto; background: var(--niebieski); border-color: var(--niebieski); color: #fff; }
+.przycisk-drugi--glowny:hover { background: var(--niebieski-hover); }
+
+/* Stopka */
+.dol { border-top: 1px solid var(--ramka); padding: 28px 0 32px; }
+.dol__linki { display: flex; flex-wrap: wrap; gap: 12px 28px; }
+.dol__linki a { color: var(--tekst-drugi); text-decoration: none; }
+.dol__linki a:hover { color: var(--niebieski); text-decoration: underline; }
+.dol__info { margin: 16px 0 0; font-size: 13px; color: var(--tekst-slaby); }
+
+@media (max-width: 700px) {
+  .szerokosc { padding: 0 16px; }
+  .gora__wnetrze { height: 64px; }
+  .gora__menu { gap: 16px; font-size: 14px; }
+  .tresc { padding-top: 28px; }
+  .przycisk-glowny { width: 100%; }
+  .pole__podpowiedz { display: none; }
+  .baner { padding: 28px 20px; margin-top: 40px; }
+  .kroki { grid-template-columns: 1fr; }
+  .przycisk-drugi--glowny { margin-left: 0; }
+}

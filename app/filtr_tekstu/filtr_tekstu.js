@@ -183,16 +183,45 @@ const filtrTekstu = {
   // temat: string (tekst użytkownika), tresc: string, skad: opis do logów i błędów
   // -> string (przefiltrowana treść, '' gdy nic nie dotyczy tematu)
   async przefiltruj(temat, tresc, skad) {
+    const { system, prompt } = promptFiltra(temat, tresc);
     const wynik = await this.zapytajModel(
       {
         model: MODELE.filtr,
-        prompt: promptFiltra(temat, tresc),
+        system,
+        prompt,
         think: false, // qwen bez trybu myślenia: szybciej, a w odpowiedzi jest sam wynik
         options: { num_ctx: MODELE.kontekstFiltra, temperature: 0 }, // temperatura 0: bez wymyślania
       },
       `filtrowanie ${skad}`
     );
-    return wynik.includes(BRAK_INFORMACJI) && wynik.length < BRAK_INFORMACJI.length + 20 ? '' : wynik;
+    if (wynik.includes(BRAK_INFORMACJI) && wynik.length < BRAK_INFORMACJI.length + 20) return '';
+    return this.sprawdzWynik(wynik, tresc, skad);
+  },
+
+  // Ochrona przed prompt injection: model ma tylko przepisywać, więc każda linia wyniku
+  // musi pochodzić z treści źródłowej. Linia przechodzi, gdy jest fragmentem źródła
+  // albo gdy co najmniej 90% jej słów występuje w źródle (drobne zmiany modelu).
+  // Linie wymyślone przez model, np. po wstrzykniętym poleceniu, są odrzucane.
+  // wynik, tresc: string -> string
+  sprawdzWynik(wynik, tresc, skad) {
+    const normuj = (s) => s.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const zrodlo = normuj(tresc);
+    const slowaZrodla = new Set(zrodlo.split(' '));
+
+    const linie = wynik.split('\n');
+    const dobre = linie.filter((linia) => {
+      const n = normuj(linia);
+      if (!n) return false;
+      if (zrodlo.includes(n)) return true;
+      const slowa = n.split(' ');
+      return slowa.filter((s) => slowaZrodla.has(s)).length / slowa.length >= 0.9;
+    });
+
+    const odrzucone = linie.filter((l) => normuj(l)).length - dobre.length;
+    if (odrzucone > 0) {
+      console.warn(`filtrowanie ${skad}: odrzucono ${odrzucone} linii spoza treści źródłowej`);
+    }
+    return dobre.join('\n');
   },
 
   // Wspólne wywołanie modelu w Ollamie. Gdy "done" jest false albo zapytanie się nie uda,
