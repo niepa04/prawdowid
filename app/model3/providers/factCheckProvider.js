@@ -132,6 +132,15 @@ function oczyscMeta(tekst) {
     .trim();
 }
 
+// Czy zdanie jest zaprzeczone: nieparzysta liczba słów przeczących ("nie", "nigdy", "żaden"...).
+// Proste, ale wystarcza do odróżnienia "X" od "nie X" w krótkich twierdzeniach.
+const PRZECZENIA = /^(nie|nigdy|żaden|żadna|żadne|żadnego|żadnej|żadnych|wcale|bynajmniej|brak|nieprawda)$/i;
+function przeczenie(tekst) {
+  const slowa = String(tekst || '').toLowerCase().split(/[^\p{L}]+/u);
+  const ile = slowa.filter((w) => PRZECZENIA.test(w)).length;
+  return ile % 2 === 1;
+}
+
 const MIN_PODOBIENSTWO = 0.55;
 const MIN_PODOBIENSTWO_ARTYKULU = 0.35;
 
@@ -234,13 +243,31 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
       const dopasowanie = matchDocumentToClaim(doc, claim, allClaims, config, { nowMs });
       if (!dopasowanie) continue;
 
-      const { relacja, rozbieznosc } = relacjaZOceny(r.textualRating);
-      dopasowanie.relation_to_claim = relacja;
       // Trafność z podobieństwa twierdzeń (matcher dla "opinii" z zasady daje tylko kontekst)
       dopasowanie.relevance = podobne >= 0.75 ? 'direct' : 'partial';
-      dopasowanie.fact_check_rating = r.textualRating; // oryginalna ocena fact-checkera, czyta ją moduł Demagog
-      dopasowanie.relevant_excerpts = [`${wydawca}: „${c.text}” – ocena: ${r.textualRating}`];
-      dopasowanie.discrepancies = rozbieznosc ? [`${wydawca} ocenił: ${r.textualRating}`] : [];
+
+      // Przeczenie: "szczepionki NIE powodują autyzmu" jest podobne słownie do "szczepionki powodują
+      // autyzm", ale znaczy odwrotnie. Wtedy ocena fact-checkera dotyczy twierdzenia PRZECIWNEGO.
+      const przeciwne = przeczenie(warianty[0]) !== przeczenie(c.text);
+      const { relacja, rozbieznosc } = relacjaZOceny(r.textualRating);
+
+      if (przeciwne) {
+        // Fałsz twierdzenia przeciwnego = zgodność naszego; Prawda przeciwnego = zaprzeczenie naszego.
+        // Ocen pośrednich (manipulacja, brak kontekstu) nie da się odwrócić - zostają kontekstem.
+        const odwrocona = rozbieznosc ? 'contextual' : relacja === 'contradicting' ? 'supporting' : relacja === 'supporting' ? 'contradicting' : 'contextual';
+        dopasowanie.relation_to_claim = odwrocona;
+        dopasowanie.fact_check_rating_przeciwnego = r.textualRating;
+        dopasowanie.relevant_excerpts = [
+          `${wydawca} ocenił twierdzenie PRZECIWNE do sprawdzanego: „${c.text}” – ocena: ${r.textualRating}`,
+        ];
+        dopasowanie.discrepancies = [];
+      } else {
+        dopasowanie.relation_to_claim = relacja;
+        dopasowanie.fact_check_rating = r.textualRating; // oryginalna ocena fact-checkera, czyta ją moduł Demagog
+        dopasowanie.relevant_excerpts = [`${wydawca}: „${c.text}” – ocena: ${r.textualRating}`];
+        dopasowanie.discrepancies = rozbieznosc ? [`${wydawca} ocenił: ${r.textualRating}`] : [];
+      }
+      dopasowanie.fact_check_claim = c.text;
       dopasowanie.limitations = [
         ...(dopasowanie.limitations || []),
         'Ocena niezależnego fact-checkera (nie źródło rządowe), pobrana z Google Fact Check Tools.',
@@ -266,5 +293,6 @@ module.exports = {
   charakterystyczneSlowa,
   zapytaniaDoBazy,
   oczyscMeta,
+  przeczenie,
   podobienstwo,
 };

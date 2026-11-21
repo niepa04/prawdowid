@@ -319,3 +319,46 @@ a:focus-visible, button:focus-visible, textarea:focus-visible {
 .komunikat-bledu p { margin: 0; color: var(--tekst); }
 .komunikat-bledu__akcje { display: flex; gap: 10px; margin-top: 16px; }
 .komunikat-bledu__akcje .przycisk-drugi--glowny { margin-left: 0; }
+
+/* Wynik z kilkoma wątkami: podsumowanie + równorzędne karty */
+.podsumowanie { border-radius: 12px; padding: 20px 24px; }
+.podsumowanie__nazwa { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin-top: 2px; }
+.podsumowanie__opis { margin: 4px 0 0; font-size: 15px; }
+.podsumowanie__liczby { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.podsumowanie__liczby .plakietka { margin-left: 0; background: var(--tlo); border: 1px solid currentColor; }
+
+.watki { list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-direction: column; gap: 16px; }
+.karta-watku {
+  border: 1px solid var(--ramka);
+  border-left: 6px solid var(--ramka-mocna);
+  border-radius: 0;
+  background: var(--tlo);
+  padding: 16px 20px;
+}
+.karta-watku--prawda { border-left-color: var(--prawda-mocny); }
+.karta-watku--manipulacja { border-left-color: var(--manipulacja-mocny); }
+.karta-watku--falsz { border-left-color: var(--falsz-mocny); }
+.karta-watku--brak { border-left-color: var(--ramka-mocna); }
+.karta-watku__gora { display: flex; gap: 12px; align-items: flex-start; }
+.karta-watku__numer {
+  flex: none; width: 28px; height: 28px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--niebieski-jasny); color: var(--niebieski-tekst); font-weight: 800; font-size: 14px;
+}
+.karta-watku__twierdzenie { margin: 2px 0 0; font-size: 17px; font-weight: 600; line-height: 1.45; }
+.karta-watku__werdykt { display: inline-block; margin: 12px 0 0 40px; padding: 6px 12px; border-radius: var(--promien); font-weight: 800; font-size: 16px; }
+.karta-watku__uzasadnienie { margin: 10px 0 0 40px; font-size: 15px; line-height: 1.6; color: var(--tekst-drugi); }
+.karta-watku .zrodla--male { margin: 10px 0 0 40px; }
+.karta-watku .szczegoly { margin-left: 40px; }
+
+.szczegoly { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.szczegol { background: var(--tlo-drugie); border-radius: var(--promien); padding: 10px 14px; }
+.szczegol__gora { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.szczegol__etykieta { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tekst-slaby); padding-top: 3px; }
+.szczegol__tresc { flex: 1; min-width: 160px; font-size: 14px; font-weight: 600; }
+.szczegol__uzasadnienie { margin: 6px 0 0; font-size: 13px; line-height: 1.55; color: var(--tekst-drugi); }
+
+@media (max-width: 700px) {
+  .karta-watku { padding: 14px 14px; }
+  .karta-watku__werdykt, .karta-watku__uzasadnienie, .karta-watku .zrodla--male, .karta-watku .szczegoly { margin-left: 0; }
+}
