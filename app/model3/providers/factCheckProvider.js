@@ -62,6 +62,42 @@ function charakterystyczneSlowa(tekst) {
     .map((x) => x.w);
 }
 
+// Zapytania do bazy Google. Wyszukiwarka odpowiada najlepiej na sąsiednie słowa ze zdania
+// ("urodzone cesarskim cięciem"), a słabo na słowa wyrwane z różnych miejsc. Kolejność:
+// trójki i pary sąsiednich słów od najbardziej charakterystycznych, na końcu jedno najważniejsze słowo.
+const MAX_ZAPYTAN = 6;
+// Słowa tak pospolite w polskich fact-checkach, że zapytanie z nimi zwraca przypadkowe wyniki
+const POSPOLITE_W_ZAPYTANIU = /^(polsk|polac|polak|polsce)/i;
+function zapytaniaDoBazy(tekst) {
+  const slowa = String(tekst)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w.length >= 3 && !SLOWA_POMIJANE.has(w.toLowerCase()) && !POSPOLITE_W_ZAPYTANIU.test(w));
+  const pojedyncze = [...new Set(slowa)].sort((a, b) => waga(b) - waga(a));
+  const ngramy = [];
+  for (const n of [3, 2]) {
+    for (let i = 0; i + n <= slowa.length; i++) {
+      const czesc = slowa.slice(i, i + n);
+      ngramy.push({ q: czesc.join(' '), w: czesc.reduce((s, x) => s + waga(x), 0) / n + n });
+    }
+  }
+  ngramy.sort((a, b) => b.w - a.w);
+  // Na końcu pojedyncze słowa: wyszukiwarka Google czasem znajduje twierdzenie tylko po jednym słowie
+  const kolejnosc = [
+    pojedyncze.slice(0, 3).join(' '),
+    ...ngramy.filter((x) => x.q.split(' ').length === 3).slice(0, 1).map((x) => x.q),
+    ...ngramy.filter((x) => x.q.split(' ').length === 2).slice(0, 1).map((x) => x.q),
+    ...pojedyncze.slice(0, 3),
+  ];
+  return [...new Set(kolejnosc.filter(Boolean))].slice(0, MAX_ZAPYTAN);
+}
+
+// Waga słowa w zapytaniu: skróty (ABW, PPK), nazwy własne, potem dłuższe słowa
+function waga(w) {
+  if (w.length >= 2 && w === w.toUpperCase() && /\p{L}/u.test(w)) return 30;
+  if (/^\p{Lu}/u.test(w)) return 12 + w.length;
+  return w.length;
+}
+
 // Podobieństwo dwóch zdań po rdzeniach słów (współczynnik Dice'a, 0..1).
 // Liczone w obie strony, więc długi cytat, który tylko zawiera nasze słowa, ma niski wynik.
 function podobienstwo(a, b) {
@@ -136,13 +172,18 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
   const podobienstwoDo = (tekst) => Math.max(...warianty.map((w) => podobienstwo(w, tekst)));
 
   try {
-    const slowa = charakterystyczneSlowa(warianty[0]);
-    // 1) trzy najbardziej charakterystyczne słowa, 2) samo najbardziej charakterystyczne słowo.
-    // Wyszukiwarka Google bywa kapryśna przy kilku słowach, a trafność i tak sprawdza filtr podobieństwa.
-    const zapytania = [slowa.slice(0, 3), slowa.slice(0, 1)].filter((s) => s.length >= 1).map((s) => s.join(' '));
-    for (const q of [...new Set(zapytania)]) {
-      wyniki = await zapytajApi(q, apiKey);
-      if (wyniki.length > 0) break;
+    // Kolejne zapytania aż do znalezienia pasującej oceny (najwyżej MAX_ZAPYTAN).
+    // Wyniki ze wszystkich zapytań są łączone; trafność i tak sprawdza filtr podobieństwa.
+    const widziane = new Set();
+    for (const q of zapytaniaDoBazy(warianty[0])) {
+      for (const c of await zapytajApi(q, apiKey)) {
+        const klucz = `${c.text}|${c.claimReview?.[0]?.url}`;
+        if (!widziane.has(klucz)) {
+          widziane.add(klucz);
+          wyniki.push(c);
+        }
+      }
+      if (wyniki.some((c) => podobienstwoDo(c.text) >= MIN_PODOBIENSTWO)) break;
     }
   } catch (err) {
     return { evidence: [], warnings: [`Baza fact-checkerów Google była niedostępna (${err.message}).`], artykuly: [] };
@@ -214,5 +255,6 @@ module.exports = {
   HOSTY_PRZEGLADANE,
   relacjaZOceny,
   charakterystyczneSlowa,
+  zapytaniaDoBazy,
   podobienstwo,
 };

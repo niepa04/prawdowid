@@ -89,7 +89,7 @@ function ocenDeterministycznie(m2Claim, m3Claim, powodFallbacku = null) {
         'Ani oficjalne źródła, ani bazy fact-checkerów nie zawierają materiałów na temat tego twierdzenia, dlatego wstrzymano się od werdyktu.';
     } else if (m3Claim.search_status === 'sources_unavailable') {
       uzasadnienie =
-        'Wybrane oficjalne źródła były technicznie niedostępne (np. zapora WAF, aplikacja SPA lub błąd połączenia). Awaria techniczna nie stanowi werdyktu.';
+        'Nie udało się pobrać informacji ze źródeł pasujących do tego tematu, a fact-checkerzy nie oceniali tego twierdzenia. To nie znaczy, że informacja jest fałszywa.';
     }
 
     return {
@@ -118,7 +118,7 @@ function ocenDeterministycznie(m2Claim, m3Claim, powodFallbacku = null) {
 
   let werdykt = 'Brak wystarczających dowodów';
   let sila = 'niska';
-  let uzasadnienie = `Odnaleziono ${evidence.length} powiązanych materiałów kontekstowych w oficjalnych źródłach, ale nie pozwalają one na jednoznaczne rozstrzygnięcie.`;
+  let uzasadnienie = `Odnaleziono ${evidence.length} powiązanych materiałów kontekstowych, ale nie pozwalają one na jednoznaczne rozstrzygnięcie.`;
 
   const hasCleanSupporting = topEvidence.some(
     (e) => e.relation_to_claim === 'supporting' && e.relevance === 'direct' && (!e.discrepancies || e.discrepancies.length === 0)
@@ -136,11 +136,11 @@ function ocenDeterministycznie(m2Claim, m3Claim, powodFallbacku = null) {
   } else if (supporting > 0 && hasCleanSupporting) {
     werdykt = 'Potwierdzone';
     sila = supporting >= 2 ? 'wysoka' : 'umiarkowana';
-    uzasadnienie = `Twierdzenie znajduje bezpośrednie potwierdzenie w oficjalnym źródle (${topEvidence[0].publisher || topEvidence[0].source_id}: "${topEvidence[0].title || 'komunikat oficjalny'}").`;
+    uzasadnienie = `Twierdzenie znajduje bezpośrednie potwierdzenie w źródle (${topEvidence[0].publisher || topEvidence[0].source_id}: "${topEvidence[0].title || 'komunikat oficjalny'}").`;
   } else if (contradicting > 0 && topEvidence.some((e) => e.relation_to_claim === 'contradicting' && e.relevance === 'direct')) {
     werdykt = 'Fałszywe';
     sila = contradicting >= 2 ? 'wysoka' : 'umiarkowana';
-    uzasadnienie = `Oficjalne źródło (${topEvidence[0].publisher || topEvidence[0].source_id}: "${topEvidence[0].title || 'komunikat oficjalny'}") zawiera informacje zaprzeczające lub dementujące to twierdzenie.`;
+    uzasadnienie = `Źródło (${topEvidence[0].publisher || topEvidence[0].source_id}: "${topEvidence[0].title || 'komunikat oficjalny'}") zawiera informacje zaprzeczające lub dementujące to twierdzenie.`;
   }
 
   const ograniczenia = [...(m3Claim.warnings || [])];

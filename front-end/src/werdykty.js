@@ -4,7 +4,7 @@
 export const WERDYKTY = {
   Potwierdzone: {
     klasa: 'prawda',
-    opis: 'Oficjalne źródła potwierdzają tę informację.',
+    opis: 'Sprawdzone źródła potwierdzają tę informację.',
     skala: 'Potwierdzone',
   },
   'Wprowadzające w błąd': {
@@ -14,12 +14,12 @@ export const WERDYKTY = {
   },
   Fałszywe: {
     klasa: 'falsz',
-    opis: 'Oficjalne źródła zaprzeczają tej informacji.',
+    opis: 'Sprawdzone źródła i fact-checkerzy zaprzeczają tej informacji.',
     skala: 'Fałszywe',
   },
   'Brak wystarczających dowodów': {
     klasa: 'brak',
-    opis: 'Nie znaleźliśmy w oficjalnych źródłach dość materiałów, żeby to rozstrzygnąć. To nie znaczy, że informacja jest fałszywa.',
+    opis: 'Nie znaleźliśmy dość materiałów, żeby to rozstrzygnąć. To nie znaczy, że informacja jest fałszywa.',
     skala: null,
   },
   'Nie podlega weryfikacji': {
