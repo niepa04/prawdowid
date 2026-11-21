@@ -80,6 +80,13 @@ function podobienstwo(a, b) {
   for (const r of A) if (B.has(r)) wspolne++;
   return (2 * wspolne) / (A.size + B.size);
 }
+// Usuwa dopiski Modelu 2 w rodzaju "Istnieje twierdzenie, że" / "Ktoś twierdzi, że"
+function oczyscMeta(tekst) {
+  return String(tekst || '')
+    .replace(/^\s*(istnieje\s+(twierdzenie|opinia|pogląd|przekonanie)|(ktoś|niektórzy|autor|użytkownik\w*)\s+(twierdzi|twierdzą|uważa|uważają|sugeruje|sugerują))\s*,?\s*(że|iż)\s+/i, '')
+    .trim();
+}
+
 const MIN_PODOBIENSTWO = 0.6;
 const MIN_PODOBIENSTWO_ARTYKULU = 0.35;
 
@@ -123,8 +130,13 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
   if (!apiKey) return { evidence: [], warnings: [], artykuly: [] };
 
   let wyniki = [];
+  // Model 2 czasem przeformułowuje twierdzenie ("Istnieje twierdzenie, że..."), więc szukamy
+  // i porównujemy także po oryginalnych słowach użytkownika (source_text).
+  const warianty = [...new Set([claim.source_text, oczyscMeta(claim.claim)].filter((t) => typeof t === 'string' && t.trim()))];
+  const podobienstwoDo = (tekst) => Math.max(...warianty.map((w) => podobienstwo(w, tekst)));
+
   try {
-    const slowa = charakterystyczneSlowa(claim.claim);
+    const slowa = charakterystyczneSlowa(warianty[0]);
     // 1) trzy najbardziej charakterystyczne słowa, 2) samo najbardziej charakterystyczne słowo.
     // Wyszukiwarka Google bywa kapryśna przy kilku słowach, a trafność i tak sprawdza filtr podobieństwa.
     const zapytania = [slowa.slice(0, 3), slowa.slice(0, 1)].filter((s) => s.length >= 1).map((s) => s.join(' '));
@@ -139,7 +151,7 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
   const evidence = [];
   const artykuly = []; // { url, podobne } - artykuły z hostów przeglądanych przez Model 3 (Demagog)
   for (const c of wyniki) {
-    const podobne = podobienstwo(claim.claim, c.text);
+    const podobne = podobienstwoDo(c.text);
 
     // Artykuły na pokrewny temat warto przeczytać, nawet jeśli dotyczą nieco innego twierdzenia:
     // ich treść i tak przechodzi później przez zwykły matcher Modelu 3.
@@ -174,6 +186,9 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
 
       const { relacja, rozbieznosc } = relacjaZOceny(r.textualRating);
       dopasowanie.relation_to_claim = relacja;
+      // Trafność z podobieństwa twierdzeń (matcher dla "opinii" z zasady daje tylko kontekst)
+      dopasowanie.relevance = podobne >= 0.75 ? 'direct' : 'partial';
+      dopasowanie.fact_check_rating = r.textualRating; // oryginalna ocena fact-checkera, czyta ją moduł Demagog
       dopasowanie.relevant_excerpts = [`${wydawca}: „${c.text}” – ocena: ${r.textualRating}`];
       dopasowanie.discrepancies = rozbieznosc ? [`${wydawca} ocenił: ${r.textualRating}`] : [];
       dopasowanie.limitations = [

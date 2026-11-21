@@ -22,6 +22,47 @@ function jakoBase64(plik) {
   });
 }
 
+// Identyfikator bez crypto.randomUUID(), które działa tylko na localhost/https
+// (przez adres Tailscale http://100.x.x.x go nie ma i wklejanie przestawało działać)
+let licznikId = 0;
+const noweId = () => `zdj-${Date.now()}-${++licznikId}`;
+
+// Duże zrzuty ekranu zmniejszamy w przeglądarce: serwer przyjmuje do 5 MB na zdjęcie,
+// a OCR i tak nie potrzebuje więcej niż ~2000 px na dłuższym boku.
+const MAX_BOK = 2000;
+const MAX_BAJTOW = 1.5 * 1024 * 1024;
+async function przygotujZdjecie(plik) {
+  const dataUrl = await jakoBase64(plik);
+  const img = await new Promise((ok, blad) => {
+    const i = new Image();
+    i.onload = () => ok(i);
+    i.onerror = () => blad(new Error('Nie udało się odczytać obrazu.'));
+    i.src = dataUrl;
+  });
+  const skala = Math.min(1, MAX_BOK / Math.max(img.width, img.height));
+  if (skala === 1 && plik.size <= MAX_BAJTOW) return dataUrl;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * skala);
+  canvas.height = Math.round(img.height * skala);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; // przezroczyste tło PNG -> białe, żeby tekst był czytelny dla OCR
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.9);
+}
+
+// Obrazy ze schowka: najpierw clipboardData.files, a gdy puste - clipboardData.items
+// (niektóre programy wkładają obraz tylko jako element schowka)
+function obrazyZeSchowka(dane) {
+  const pliki = [...(dane.files || [])].filter((p) => p.type.startsWith('image/'));
+  if (pliki.length) return pliki;
+  return [...(dane.items || [])]
+    .filter((i) => i.kind === 'file' && i.type.startsWith('image/'))
+    .map((i) => i.getAsFile())
+    .filter(Boolean);
+}
+
 // Jedno pole na wszystko: tekst, wklejone linki i zdjęcia (Ctrl+V albo z dysku).
 // Linki są wykrywane w tekście i pokazywane jako kafelki pod polem.
 export default function PoleWejscia({ onSprawdz }) {
@@ -35,20 +76,30 @@ export default function PoleWejscia({ onSprawdz }) {
 
   async function dodajZdjecia(pliki) {
     const obrazy = [...pliki].filter((p) => p.type.startsWith('image/'));
-    const nowe = await Promise.all(
-      obrazy.map(async (p) => ({ id: crypto.randomUUID(), nazwa: p.name || 'wklejone zdjęcie', dataUrl: await jakoBase64(p) }))
-    );
-    if (nowe.length) {
-      setZdjecia((z) => [...z, ...nowe]);
+    if (!obrazy.length) return;
+    try {
+      const nowe = await Promise.all(
+        obrazy.map(async (p) => ({ id: noweId(), nazwa: p.name || 'wklejone zdjęcie', dataUrl: await przygotujZdjecie(p) }))
+      );
+      setZdjecia((z) => [...z, ...nowe].slice(0, 10)); // serwer przyjmuje do 10 zdjęć
       setBlad('');
+    } catch (err) {
+      setBlad(`Nie udało się dodać zdjęcia: ${err.message}`);
     }
   }
 
   function wklej(e) {
-    const pliki = [...e.clipboardData.files].filter((p) => p.type.startsWith('image/'));
+    const pliki = obrazyZeSchowka(e.clipboardData);
     if (pliki.length) {
       e.preventDefault();
       dodajZdjecia(pliki);
+      return;
+    }
+    // Obraz skopiowany razem z fragmentem strony trafia do schowka tylko jako link w HTML
+    const html = e.clipboardData.getData('text/html');
+    if (/<img\b/i.test(html) && !e.clipboardData.getData('text/plain').trim()) {
+      e.preventDefault();
+      setBlad('Ten obraz wkleił się jako link, nie jako plik. Kliknij go prawym przyciskiem i wybierz „Kopiuj obraz” albo zapisz go i użyj „Dodaj zdjęcie”.');
     }
   }
 

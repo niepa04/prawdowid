@@ -231,9 +231,18 @@ async function zbierzZFactCheckerow(claim, allClaims, deps, claimKeywords, claim
   wynik.sourcesChecked.push(demagog.source_id);
   wynik.errors.push(...col.errors);
   wynik.securityFlags.push(...col.securityFlags);
+  // Artykuł fact-checkera, który ocenił twierdzenie, ma relację z jego oceny (matcher widzi tylko
+  // te same słowa i artykuł obalający twierdzenie brałby za potwierdzenie). Pozostałe artykuły,
+  // znalezione po linkach, traktujemy jako kontekst.
+  const relacjaOceny = new Map(fc.evidence.map((e) => [e.url, e]));
   for (const doc of col.docs) {
     const matched = matchDocumentToClaim(doc, claim, allClaims, config, { nowMs });
-    if (matched) wynik.evidence.push(matched);
+    if (!matched) continue;
+    const ocena = relacjaOceny.get(matched.url);
+    matched.relation_to_claim = ocena ? ocena.relation_to_claim : 'contextual';
+    matched.discrepancies = ocena ? [...(ocena.discrepancies || [])] : [];
+    matched.source_type = 'fact_checking';
+    wynik.evidence.push(matched);
   }
   return wynik;
 }
@@ -266,8 +275,9 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
 
     // Brak pasującego źródła rządowego, ale fakt mógł już ocenić niezależny fact-checker
     let fcEvidence = [];
-    const weryfikowalne = claim.type !== 'opinion' && claim.type !== 'non_verifiable';
-    if (config.factCheckApiKey && weryfikowalne) {
+    // Także dla "opinii": Model 2 czasem tak oznacza fałszywe twierdzenia (np. o szczepionkach),
+    // a fact-checkerzy mogli je już sprawdzić. Werdykt i tak zależy od tego, czy ocena się znajdzie.
+    if (config.factCheckApiKey) {
       const fc = await zbierzZFactCheckerow(claim, allClaims, deps, extractKeywords(claimText, 8), buildClaimContextText(claim, allClaims));
       fcEvidence = deduplicateEvidence(fc.evidence).evidence;
       warnings.push(...fc.warnings);
