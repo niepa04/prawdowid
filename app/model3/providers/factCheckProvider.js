@@ -72,12 +72,15 @@ function zapytaniaDoBazy(tekst) {
   const slowa = String(tekst)
     .split(/[^\p{L}\p{N}]+/u)
     .filter((w) => w.length >= 3 && !SLOWA_POMIJANE.has(w.toLowerCase()) && !POSPOLITE_W_ZAPYTANIU.test(w));
-  const pojedyncze = [...new Set(slowa)].sort((a, b) => waga(b) - waga(a));
+  // Wielka litera tylko na początku zdania nie oznacza nazwy własnej
+  const pierwsze = String(tekst).trim().split(/[^\p{L}\p{N}]+/u)[0];
+  const w = (x) => waga(x, x === pierwsze ? 0 : 1);
+  const pojedyncze = [...new Set(slowa)].sort((a, b) => w(b) - w(a));
   const ngramy = [];
   for (const n of [3, 2]) {
     for (let i = 0; i + n <= slowa.length; i++) {
       const czesc = slowa.slice(i, i + n);
-      ngramy.push({ q: czesc.join(' '), w: czesc.reduce((s, x) => s + waga(x), 0) / n + n });
+      ngramy.push({ q: czesc.join(' '), w: czesc.reduce((s, x) => s + w(x), 0) / n + n });
     }
   }
   ngramy.sort((a, b) => b.w - a.w);
@@ -92,9 +95,9 @@ function zapytaniaDoBazy(tekst) {
 }
 
 // Waga słowa w zapytaniu: skróty (ABW, PPK), nazwy własne, potem dłuższe słowa
-function waga(w) {
+function waga(w, pozycja = 1) {
   if (w.length >= 2 && w === w.toUpperCase() && /\p{L}/u.test(w)) return 30;
-  if (/^\p{Lu}/u.test(w)) return 12 + w.length;
+  if (pozycja > 0 && /^\p{Lu}/u.test(w)) return 12 + w.length;
   return w.length;
 }
 
@@ -107,7 +110,8 @@ function podobienstwo(a, b) {
         .toLowerCase()
         .split(/[^\p{L}\p{N}]+/u)
         .filter((w) => w.length >= 3 && !SLOWA_POMIJANE.has(w))
-        .map((w) => w.slice(0, Math.max(3, Math.floor(w.length * 0.7))))
+        // rdzeń = 6 pierwszych liter: "szczepionki"/"szczepieniach" -> "szczep", "autyzm"/"autyzmu" -> "autyzm"
+        .map((w) => w.slice(0, 6))
     );
   const A = rdzenie(a);
   const B = rdzenie(b);
@@ -116,14 +120,19 @@ function podobienstwo(a, b) {
   for (const r of A) if (B.has(r)) wspolne++;
   return (2 * wspolne) / (A.size + B.size);
 }
-// Usuwa dopiski Modelu 2 w rodzaju "Istnieje twierdzenie, że" / "Ktoś twierdzi, że"
+// Usuwa wstępy, które nie są treścią twierdzenia: dopiski Modelu 2 ("Istnieje twierdzenie, że",
+// "Autor tekstu kwestionuje, czy"), powołania ("Udowodniono, że", "Badania pokazują, że")
+// i formę pytania ("Czy ...?"). Oceniane jest samo sedno.
 function oczyscMeta(tekst) {
   return String(tekst || '')
-    .replace(/^\s*(istnieje\s+(twierdzenie|opinia|pogląd|przekonanie)|(ktoś|niektórzy|autor|użytkownik\w*)\s+(twierdzi|twierdzą|uważa|uważają|sugeruje|sugerują))\s*,?\s*(że|iż)\s+/i, '')
+    .replace(/^\s*(istnieje\s+(twierdzenie|opinia|pogląd|przekonanie)|(ktoś|niektórzy|autor\w*(\s+tekstu)?|użytkownik\w*)\s+(twierdzi|twierdzą|uważa|uważają|sugeruje|sugerują|kwestionuje|pyta))\s*,?\s*(że|iż|czy)?\s+/i, '')
+    .replace(/^\s*(udowodniono|potwierdzono|wykazano|ustalono|okazało się|zostało udowodnione|naukowcy (udowodnili|potwierdzili|wykazali)|badania (pokazują|wykazały|dowodzą)|mówi się|słyszałem|słyszałam|podobno)\s*,?\s*(że|iż)?\s+/i, '')
+    .replace(/^\s*czy\s+/i, '')
+    .replace(/\?+\s*$/, '')
     .trim();
 }
 
-const MIN_PODOBIENSTWO = 0.6;
+const MIN_PODOBIENSTWO = 0.55;
 const MIN_PODOBIENSTWO_ARTYKULU = 0.35;
 
 // Fact-checkerzy, których artykuły Model 3 otwiera i czyta (muszą być w katalogu źródeł).
@@ -168,7 +177,7 @@ async function zbierzOcenyFactCheckerow(claim, allClaims, config, nowMs) {
   let wyniki = [];
   // Model 2 czasem przeformułowuje twierdzenie ("Istnieje twierdzenie, że..."), więc szukamy
   // i porównujemy także po oryginalnych słowach użytkownika (source_text).
-  const warianty = [...new Set([claim.source_text, oczyscMeta(claim.claim)].filter((t) => typeof t === 'string' && t.trim()))];
+  const warianty = [...new Set([oczyscMeta(claim.source_text), oczyscMeta(claim.claim)].filter((t) => typeof t === 'string' && t.trim()))];
   const podobienstwoDo = (tekst) => Math.max(...warianty.map((w) => podobienstwo(w, tekst)));
 
   try {
@@ -256,5 +265,6 @@ module.exports = {
   relacjaZOceny,
   charakterystyczneSlowa,
   zapytaniaDoBazy,
+  oczyscMeta,
   podobienstwo,
 };

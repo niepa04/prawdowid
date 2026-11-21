@@ -29,6 +29,9 @@ function getConfig(overrides = {}) {
     maxCrawlDepth: parsePositiveInt(process.env.MODEL3_MAX_CRAWL_DEPTH, 2),
     // Łączny limit podstron pobieranych z jednego źródła (wszystkie poziomy razem)
     maxPagesPerSource: parsePositiveInt(process.env.MODEL3_MAX_PAGES_PER_SOURCE, 10),
+    // Ogólne kanały, w których pojawiłoby się każde poważne zdarzenie w Polsce (KPRM, RCB, MON,
+    // ogólnopolski system ostrzeżeń). Przeszukiwane, gdy do twierdzenia nie pasuje żadne źródło tematyczne.
+    fallbackSourceIds: (process.env.MODEL3_FALLBACK_SOURCES || 'SRC040,SRC037,SRC009,SRC002').split(',').map((s) => s.trim()).filter(Boolean),
     // Przeglądanie Demagoga: ile artykułów otworzyć na twierdzenie (znalezionych przez bazę Google)
     maxDemagogArticles: parsePositiveInt(process.env.MODEL3_MAX_DEMAGOG_ARTICLES, 2),
     maxSourcesPerClaim: parsePositiveInt(process.env.MODEL3_MAX_SOURCES_PER_CLAIM, 6),

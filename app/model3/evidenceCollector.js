@@ -266,9 +266,23 @@ async function collectEvidenceForClaim(claim, allClaims, deps) {
   const fetchedUrls = new Set();
 
   // 1. Routing tematyczny
-  const routing = routeClaimToSources(claim, allClaims, sourceRegistry, {
+  let routing = routeClaimToSources(claim, allClaims, sourceRegistry, {
     maxSourcesPerClaim: config.maxSourcesPerClaim,
   });
+
+  // Żadne źródło nie pasuje tematycznie, a twierdzenie jest faktem do sprawdzenia:
+  // przeszukujemy ogólne kanały (KPRM, RCB, MON, system ostrzeżeń). Dzięki temu brak wyników
+  // coś znaczy - o poważnym zdarzeniu w Polsce te kanały by informowały.
+  const weryfikowalne = claim.type !== 'opinion' && claim.type !== 'non_verifiable';
+  if ((routing.noSuitableSource || routing.selectedSources.length === 0) && weryfikowalne) {
+    const zapasowe = (config.fallbackSourceIds || [])
+      .map((id) => sourceRegistry.getSourceById(id))
+      .filter((s) => s && s.enabled);
+    if (zapasowe.length > 0) {
+      routing = { ...routing, selectedSources: zapasowe, noSuitableSource: false, routingNote: null };
+      warnings.push('Brak źródeł dopasowanych do tematu – przeszukano ogólne kanały informacyjne (KPRM, RCB, MON, system ostrzeżeń).');
+    }
+  }
 
   if (routing.noSuitableSource || routing.selectedSources.length === 0) {
     if (routing.routingNote) warnings.push(routing.routingNote);
