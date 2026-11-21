@@ -1,17 +1,39 @@
-// filtr_tekstu.js - zamienia każdy rodzaj wejścia (tekst, linki, zdjęcia, film) na tekst
+// filtr_tekstu.js - zamienia wszystko, co przysłał użytkownik, na jeden przefiltrowany tekst
 //
-// Każda metoda przyjmuje dane już po walidacji z dodatki/zabezpieczenia.js
-// i zwraca Promise<string>. Każda metoda sama przepuszcza swój wynik
-// przez zabezpieczenie (szybkaWeryfikacja dla tekstu, zabezpiecz dla reszty).
+// Kolejność:
+// 1. rozdziel()   - z treści użytkownika wyciąga linki i wklejone zdjęcia,
+//                   powstaje obiekt { tekst, linki, zdjecia }
+// 2. konwersja    - linki -> tekst stron (webscraper), zdjęcia -> tekst (OCR);
+//                   pola linki i zdjecia zostają nadpisane tym tekstem
+// 3. przefiltruj() - model językowy zostawia z tekstu stron i zdjęć tylko to,
+//                   co dotyczy tematu, czyli tekstu wpisanego przez użytkownika
+// 4. wynik        - jeden długi tekst: tekst + linki + zdjęcia
 
 const PROMPT_OCR = require('./prompt_ocr');
+const { promptFiltra, BRAK_INFORMACJI } = require('./prompt_filtr');
+const webscraper = require('./webscraper');
+const {
+  BladWalidacji,
+  walidujTekst,
+  walidujLinki,
+  walidujZdjecia,
+} = require('../dodatki/zabezpieczenia');
 
-const OCR = {
-  url: process.env.OCR_URL || 'http://100.127.211.111:11434/api/generate',
-  model: process.env.OCR_MODEL || 'glm-ocr:latest',
+// Wszystkie modele stoją na tym samym serwerze Ollama
+const MODELE = {
+  url: process.env.OLLAMA_URL || process.env.OCR_URL || 'http://100.127.211.111:11434/api/generate',
+  ocr: process.env.OCR_MODEL || 'glm-ocr:latest',
+  filtr: process.env.FILTR_MODEL || 'qwen3.5:9b',
   maxProb: 3, // 1 próba + 2 powtórki
-  timeoutMs: Number(process.env.OCR_TIMEOUT_MS) || 180000,
+  timeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS) || 300000,
+  // Ollama domyślnie ucina długie wejście do kilku tysięcy tokenów, a tekst ze stron bywa długi
+  kontekstFiltra: Number(process.env.FILTR_NUM_CTX) || 32768,
 };
+
+// Zdjęcie wklejone w treść: data:image/png;base64,....
+const WZOR_ZDJECIA = /data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[A-Za-z0-9+/]+={0,2}/gi;
+// Link w treści: od http(s):// do pierwszej spacji lub nawiasu
+const WZOR_LINKU = /https?:\/\/[^\s<>"'`()[\]{}]+/gi;
 
 // Błąd, którego treść można pokazać klientowi (obslugaBledow zwróci status + wiadomość)
 class BladKonwersji extends Error {
@@ -23,20 +45,76 @@ class BladKonwersji extends Error {
 }
 
 const filtrTekstu = {
-  // Główne wejście: wybiera właściwą konwersję po typie danych
-  async konwertuj(typ, dane) {
-    switch (typ) {
-      case 'tekst':
-        return this.zTekstu(dane);
-      case 'link':
-        return this.zLinkow(dane);
-      case 'zdjecie':
-        return this.zeZdjec(dane);
-      case 'film':
-        return this.zFilmu(dane);
-      default:
-        throw new Error(`Nieznany typ danych: ${typ}`);
+  // Główne wejście.
+  // dane: { tekst, linki, zdjecia } z walidujZapytanie() - tekst może zawierać linki i zdjęcia
+  // -> string (jeden długi, przefiltrowany tekst)
+  async konwertuj(dane) {
+    // 1. rozdzielenie
+    const czesci = this.rozdziel(dane);
+    if (!czesci.tekst && !czesci.linki.length && !czesci.zdjecia.length) {
+      throw new BladWalidacji('Nic nie przysłano. Podaj tekst, linki albo zdjęcia.');
     }
+
+    // 2. konwersja na tekst; linki i zdjęcia równolegle, bo idą do różnych serwerów
+    const [tekst, tekstLinkow, tekstZdjec] = await Promise.all([
+      czesci.tekst ? this.zTekstu(czesci.tekst) : '',
+      czesci.linki.length ? this.zLinkow(czesci.linki) : '',
+      czesci.zdjecia.length ? this.zeZdjec(czesci.zdjecia) : '',
+    ]);
+    czesci.tekst = tekst;
+    czesci.linki = tekstLinkow;
+    czesci.zdjecia = tekstZdjec;
+
+    // 3. filtrowanie po temacie; bez tekstu nie ma tematu, więc nie ma czego filtrować
+    if (czesci.tekst) {
+      if (czesci.zdjecia) czesci.zdjecia = await this.przefiltruj(czesci.tekst, czesci.zdjecia, 'zdjęć');
+      if (czesci.linki) czesci.linki = await this.przefiltruj(czesci.tekst, czesci.linki, 'linków');
+    }
+
+    // 4. jeden długi tekst
+    return [
+      ['TEKST', czesci.tekst],
+      ['LINKI', czesci.linki],
+      ['ZDJĘCIA', czesci.zdjecia],
+    ]
+      .filter(([, t]) => t)
+      .map(([nazwa, t]) => `===== [${nazwa}] =====\n${t}`)
+      .join('\n\n');
+  },
+
+  // Rozdziela treść użytkownika na osobne pola.
+  // Zdjęcia (data:image/...;base64,...) i linki są wycinane z tekstu, a to, co zostanie, jest tematem.
+  // Linki i zdjęcia podane w osobnych polach są dołączane do wyciągniętych z tekstu.
+  // dane: { tekst, linki, zdjecia } -> { tekst: string, linki: string[], zdjecia: {typ, rozmiar, base64}[] }
+  rozdziel(dane) {
+    let tekst = dane.tekst || '';
+
+    const zdjecia = [...(dane.zdjecia || []), ...(tekst.match(WZOR_ZDJECIA) || [])];
+    tekst = tekst.replace(WZOR_ZDJECIA, ' ');
+
+    // interpunkcja na końcu linku należy do zdania, nie do adresu
+    const linkiZTekstu = [];
+    tekst = tekst.replace(WZOR_LINKU, (link) => {
+      const koncowka = link.match(/[.,;:!?]+$/)?.[0] || '';
+      linkiZTekstu.push(link.slice(0, link.length - koncowka.length));
+      return ' ' + koncowka;
+    });
+    const linki = [...new Set([...(dane.linki || []), ...linkiZTekstu])];
+
+    tekst = tekst
+      .replace(/\(\s*\)|\[\s*\]/g, ' ') // puste nawiasy po wyciętych linkach
+      .replace(/[ \t]+/g, ' ')
+      .replace(/ ([.,;:!?])/g, '$1')
+      .replace(/ *\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    // walidacja każdej części tymi samymi regułami co wcześniej
+    return {
+      tekst: tekst ? walidujTekst(tekst) : '',
+      linki: linki.length ? walidujLinki(linki) : [],
+      zdjecia: zdjecia.length ? walidujZdjecia(zdjecia) : [],
+    };
   },
 
   // Szybka weryfikacja tekstu wpisanego przez użytkownika.
@@ -61,9 +139,16 @@ const filtrTekstu = {
   },
 
   // linki: string[] (adresy URL) -> tekst ze wszystkich stron
+  // Każda strona idzie przez webscraper, a jej tekst przez zabezpiecz().
+  // Przy kilku linkach teksty są oznaczone [LINK n: adres].
   async zLinkow(linki) {
-    // TODO
-    return '';
+    const teksty = [];
+    for (const link of linki) {
+      const tekstStrony = await webscraper.pobierz(link);
+      teksty.push(await this.zabezpiecz(tekstStrony));
+    }
+    if (teksty.length === 1) return teksty[0];
+    return teksty.map((t, i) => `[LINK ${i + 1}: ${linki[i]}]\n${t}`).join('\n\n');
   },
 
   // zdjecia: { typ, rozmiar, base64 }[] -> tekst odczytany ze zdjęć
@@ -79,40 +164,58 @@ const filtrTekstu = {
     return teksty.map((t, i) => `[ZDJĘCIE ${i + 1}]\n${t}`).join('\n\n');
   },
 
-  // Wysyła jedno zdjęcie do modelu OCR. Gdy "done" jest false albo zapytanie się nie uda,
-  // próbuje jeszcze 2 razy. Po 3 nieudanych próbach rzuca BladKonwersji.
   // base64: string (bez prefiksu data:) -> string (odczytany tekst)
   async ocrZdjecia(base64, numer = 1) {
+    return this.zapytajModel(
+      { model: MODELE.ocr, prompt: PROMPT_OCR, images: [base64] },
+      `OCR zdjęcia nr ${numer}`
+    );
+  },
+
+  // Zostawia z treści tylko informacje dotyczące tematu.
+  // temat: string (tekst użytkownika), tresc: string, skad: opis do logów i błędów
+  // -> string (przefiltrowana treść, '' gdy nic nie dotyczy tematu)
+  async przefiltruj(temat, tresc, skad) {
+    const wynik = await this.zapytajModel(
+      {
+        model: MODELE.filtr,
+        prompt: promptFiltra(temat, tresc),
+        think: false, // qwen bez trybu myślenia: szybciej, a w odpowiedzi jest sam wynik
+        options: { num_ctx: MODELE.kontekstFiltra, temperature: 0 }, // temperatura 0: bez wymyślania
+      },
+      `filtrowanie ${skad}`
+    );
+    return wynik.includes(BRAK_INFORMACJI) && wynik.length < BRAK_INFORMACJI.length + 20 ? '' : wynik;
+  },
+
+  // Wspólne wywołanie modelu w Ollamie. Gdy "done" jest false albo zapytanie się nie uda,
+  // próbuje jeszcze 2 razy. Po 3 nieudanych próbach rzuca BladKonwersji.
+  // zapytanie: pola dla /api/generate (model, prompt, images, ...), opis: do logów i błędów
+  // -> string (pole "response")
+  async zapytajModel(zapytanie, opis) {
     let ostatniBlad;
-    for (let proba = 1; proba <= OCR.maxProb; proba++) {
+    for (let proba = 1; proba <= MODELE.maxProb; proba++) {
       try {
-        const odp = await fetch(OCR.url, {
+        const odp = await fetch(MODELE.url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: OCR.model,
-            prompt: PROMPT_OCR,
-            images: [base64],
-            stream: false,
-          }),
-          signal: AbortSignal.timeout(OCR.timeoutMs),
+          body: JSON.stringify({ ...zapytanie, stream: false }),
+          signal: AbortSignal.timeout(MODELE.timeoutMs),
         });
         if (!odp.ok) {
           throw new Error(`HTTP ${odp.status}`);
         }
         const dane = await odp.json();
         if (dane.done === true && typeof dane.response === 'string') {
-          return dane.response;
+          return dane.response.trim();
         }
         throw new Error(`done=${dane.done}${dane.done_reason ? `, powód: ${dane.done_reason}` : ''}`);
       } catch (err) {
         ostatniBlad = err;
-        console.warn(`OCR zdjęcia nr ${numer}, próba ${proba}/${OCR.maxProb} nieudana: ${err.message}`);
+        console.warn(`${opis}, próba ${proba}/${MODELE.maxProb} nieudana: ${err.message}`);
       }
     }
-    throw new BladKonwersji(
-      `Nie udało się odczytać tekstu ze zdjęcia nr ${numer} po ${OCR.maxProb} próbach (${ostatniBlad.message}).`
-    );
+    throw new BladKonwersji(`Nieudane ${opis} po ${MODELE.maxProb} próbach (${ostatniBlad.message}).`);
   },
 
   // film: format wejścia jeszcze do ustalenia

@@ -1,11 +1,6 @@
 // koma.js - serwer aplikacji
 const express = require('express');
-const {
-  walidujTekst,
-  walidujLinki,
-  walidujZdjecia,
-  obslugaBledow,
-} = require('./dodatki/zabezpieczenia');
+const { walidujZapytanie, obslugaBledow } = require('./dodatki/zabezpieczenia');
 const filtrTekstu = require('./filtr_tekstu/filtr_tekstu');
 
 const os = require('os');
@@ -23,9 +18,8 @@ app.disable('x-powered-by');
 // "tailscale serve" działa jako lokalne proxy, ufamy tylko nagłówkom X-Forwarded-* z localhosta
 app.set('trust proxy', 'loopback');
 
-// Limity rozmiaru body: mały dla tekstu i linków, duży tylko dla zdjęć
-const jsonMaly = express.json({ limit: '200kb', strict: true });
-const jsonZdjecia = express.json({ limit: '70mb', strict: true });
+// Jedno zapytanie może zawierać do 10 zdjęć po 5 MB (w Base64 ~4/3 większe), stąd 70 MB
+const jsonZapytanie = express.json({ limit: '70mb', strict: true });
 
 // TEST: tymczasowy frontend, usunąć razem z plikiem test.html
 const path = require('path');
@@ -34,48 +28,23 @@ app.get('/', (req, res) => {
 });
 
 
-// TEST: wypisuje tekst z filtra w konsoli serwera
-function pokazTekst(zrodlo, tekst) {
-  console.log(`\n----- tekst z: ${zrodlo} -----\n${tekst}\n----- koniec -----`);
-}
+// POST /api/weryfikuj  body (JSON), każde pole opcjonalne, przynajmniej jedno niepuste:
+// {
+//   "tekst":   "dowolny tekst, może zawierać linki i wklejone zdjęcia data:image/...;base64,...",
+//   "linki":   "https://..." albo ["https://...", ...],
+//   "zdjecia": "<base64>"    albo ["<base64>", ...],
+//   "film":    null (jeszcze nieobsługiwany)
+// }
+// Odpowiedź: { "tekst": "jeden długi, przefiltrowany tekst" }
+app.post('/api/weryfikuj', jsonZapytanie, async (req, res) => {
+  const dane = walidujZapytanie(req.body);
+  const tekst = await filtrTekstu.konwertuj(dane);
 
-// Surowy tekst w body, bez JSON-a. Przyjmuje każdy Content-Type, domyślnie UTF-8.
-const surowyTekst = express.text({ limit: '200kb', type: () => true, defaultCharset: 'utf-8' });
+  // TEST: wypisuje tekst z filtra w konsoli serwera
+  console.log(`\n----- tekst z zapytania -----\n${tekst}\n----- koniec -----`);
+  // TODO: dalsze przetwarzanie tekstu
 
-// POST /api/tekst  body: dowolny tekst (string)
-app.post('/api/tekst', surowyTekst, async (req, res) => {
-  const tekst = walidujTekst(req.body);
-  const wynik = await filtrTekstu.konwertuj('tekst', tekst);
-
-  pokazTekst('tekst', wynik); // TODO: dalsze przetwarzanie tekstu
-
-  res.json({ status: 'ok' });
-});
-
-
-app.post('/api/link', jsonMaly, async (req, res) => {
-  const linki = walidujLinki(req.body.linki);
-  const wynik = await filtrTekstu.konwertuj('link', linki);
-
-  pokazTekst('link', wynik); // TODO: dalsze przetwarzanie tekstu
-
-  res.json({ status: 'ok' });
-});
-
-
-app.post('/api/zdjecie', jsonZdjecia, async (req, res) => {
-  const zdjecia = walidujZdjecia(req.body.zdjecia);
-  const wynik = await filtrTekstu.konwertuj('zdjecie', zdjecia);
-
-  pokazTekst('zdjecie', wynik); // TODO: dalsze przetwarzanie tekstu
-
-  res.json({ status: 'ok' });
-});
-
-
-app.post('/api/film', (req, res) => {
-  // TODO: walidacja filmu, potem filtrTekstu.konwertuj('film', ...)
-  res.status(501).json({ blad: 'Jeszcze nie zaimplementowane.' });
+  res.json({ tekst });
 });
 
 app.use((req, res) => {

@@ -104,6 +104,49 @@ function walidujZdjecia(wejscie) {
   });
 }
 
+// Puste pole = brak pola: undefined, null, '', [] albo sam whitespace
+function pustePole(wartosc) {
+  if (wartosc === undefined || wartosc === null) return true;
+  if (typeof wartosc === 'string') return wartosc.trim() === '';
+  if (Array.isArray(wartosc)) return wartosc.length === 0;
+  return false;
+}
+
+// Pole musi być napisem albo tablicą napisów; zwraca tablicę (pustą dla pustego pola)
+function listaNapisow(wartosc, nazwa) {
+  if (pustePole(wartosc)) return [];
+  const lista = jakoTablica(wartosc);
+  if (!lista.every((x) => typeof x === 'string')) {
+    throw new BladWalidacji(`Pole "${nazwa}" musi być tekstem albo listą tekstów.`);
+  }
+  return lista;
+}
+
+// Sprawdza kształt zbiorczego zapytania:
+// { "tekst": "...", "linki": [...], "zdjecia": [...], "film": ... }
+// Wszystkie pola są opcjonalne. Pole "tekst" może zawierać wklejone linki i zdjęcia
+// (data:image/...;base64,...), dlatego jego długość i treść są sprawdzane dopiero
+// po rozdzieleniu w filtrTekstu.rozdziel().
+// Zwraca { tekst: string, linki: string[], zdjecia: string[] }.
+function walidujZapytanie(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new BladWalidacji('Wyślij obiekt JSON z polami: tekst, linki, zdjecia.');
+  }
+  if (!pustePole(body.film)) {
+    const blad = new BladWalidacji('Pole "film" nie jest jeszcze obsługiwane.');
+    blad.status = 501;
+    throw blad;
+  }
+  if (!pustePole(body.tekst) && typeof body.tekst !== 'string') {
+    throw new BladWalidacji('Pole "tekst" musi być tekstem.');
+  }
+  return {
+    tekst: pustePole(body.tekst) ? '' : body.tekst,
+    linki: listaNapisow(body.linki, 'linki'),
+    zdjecia: listaNapisow(body.zdjecia, 'zdjecia'),
+  };
+}
+
 // Middleware: zamienia błędy walidacji i błędy parsowania JSON na odpowiedź 400/413
 function obslugaBledow(err, req, res, next) {
   if (err instanceof BladWalidacji || err.publiczny) {
@@ -125,5 +168,6 @@ module.exports = {
   walidujTekst,
   walidujLinki,
   walidujZdjecia,
+  walidujZapytanie,
   obslugaBledow,
 };
