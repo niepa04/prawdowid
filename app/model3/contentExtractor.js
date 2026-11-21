@@ -615,6 +615,30 @@ function parseJsonApi(jsonText, source, apiUrl, retrievedAt, sourceRegistry, fet
         });
       }
 
+      // Aktualności dla kraju (na stronie Odyseusza: ramka "Aktualności" / "Ostatnia aktualizacja"),
+      // np. zapowiedź strajku generalnego, zamieszek, zamknięcia lotnisk. To najświeższe informacje MSZ.
+      const aktualnosci = stripHtmlToText(String(data.trescPowiadomieniaDluga || data.trescPowiadomieniaKrotka || '')).trim();
+      if (aktualnosci.length > 30) {
+        documents.push({
+          source_id: source.source_id,
+          source_url: source.source_url,
+          url: 'https://odyseusz.gov.pl/',
+          title: `MSZ Odyseusz – ${countryName}: Aktualności`,
+          publisher: 'Ministerstwo Spraw Zagranicznych – System Odyseusz',
+          published_at: pubDate,
+          updated_at: pubDate,
+          event_date: pubDate,
+          observed_at: retrievedAt,
+          retrieved_at: retrievedAt,
+          source_type: source.source_type,
+          content_type: 'application/json',
+          text: `Państwo: ${countryName} (Aktualności MSZ). ${aktualnosci}`,
+          retrieval_status: 'ok',
+          measurement_data: null,
+          limitations: [...fetchLimitations],
+        });
+      }
+
       for (const sekcja of data.sekcje || []) {
         const secName = sekcja.zakresInformacyjny?.opis || sekcja.zakresInformacyjny?.kod || 'Informacje';
         const subTexts = (sekcja.podsekcje || []).map((ps) => `${ps.tytul || ''}: ${stripHtmlToText(String(ps.tresc || ''))}`);

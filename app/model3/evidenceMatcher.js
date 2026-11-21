@@ -188,12 +188,14 @@ function detectFactualDiscrepancies(claimText, docText) {
 
 function computeTokenMatches(keywords, targetText) {
   const normTarget = normalizeForMatch(targetText);
-  const targetWords = normTarget.split(/\s+/).filter(Boolean);
+  // Oboczność ch/sz w polskiej odmianie ("Włochy" / "we Włoszech"): porównujemy rdzenie po ujednoliceniu
+  const obocznosc = (s) => s.replace(/sz/g, 'ch');
+  const targetWords = normTarget.split(/\s+/).filter(Boolean).map(obocznosc);
   const matched = [];
 
   for (const kw of keywords) {
     const lowerKw = kw.toLowerCase();
-    const stem = stemApprox(lowerKw);
+    const stem = obocznosc(stemApprox(lowerKw));
     const exactMatch =
       normTarget.includes(` ${lowerKw} `) ||
       normTarget.startsWith(`${lowerKw} `) ||
