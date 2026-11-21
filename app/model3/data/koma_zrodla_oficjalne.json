@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "description": "Lista oficjalnych źródeł przekazanych dla projektu KOMA / PRAWDOWID. Adresy nie są automatycznie uznawane za dowód prawdziwości twierdzenia.",
+  "sources": [
+    {
+      "url": "https://odyseusz.gov.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/gov/ostrzezenia",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/gov/ostrzezenia#/_/mazowieckie/wszystkie",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/mswia/regionalny-system-ostrzegania",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/rcb/raport-dobowy3",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/kgpsp/aktualnosci",
+      "enabled": true
+    },
+    {
+      "url": "https://policja.pl/pol/aktualnosci",
+      "enabled": true
+    },
+    {
+      "url": "https://mazowiecka.policja.gov.pl/ra/aktualnosci/aktualnosci",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/obrona-narodowa/aktualnosci5",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/gis/ostrzezenia",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/paa/panstwowa-agencja-atomistyki",
+      "enabled": true
+    },
+    {
+      "url": "https://monitoring.paa.gov.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://powietrze.gios.gov.pl/pjp/",
+      "enabled": true
+    },
+    {
+      "url": "https://moje.cert.pl/komunikaty/",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/infrastruktura",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/infrastruktura/aktualnosci",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/infrastruktura/prawa-pasazerow",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/infrastruktura/infolinia-dla-obywatela",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/infrastruktura/dane-kontaktowe",
+      "enabled": true
+    },
+    {
+      "url": "https://drogi.gddkia.gov.pl/informacje-drogowe",
+      "enabled": true
+    },
+    {
+      "url": "https://drogi.gddkia.gov.pl/mapy/mapa-informacji-drogowej",
+      "enabled": true
+    },
+    {
+      "url": "https://drogi.gddkia.gov.pl/informacje-drogowe/lista-utrudnien",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/gddkia/informacja-drogowa---19-111",
+      "enabled": true
+    },
+    {
+      "url": "https://ulc.gov.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://ulc.gov.pl/prawa-pasazera",
+      "enabled": true
+    },
+    {
+      "url": "https://ulc.gov.pl/prawa-pasazera/poradnik-dla-pasazerow",
+      "enabled": true
+    },
+    {
+      "url": "https://portalpasazera.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://utk.gov.pl/pl/pasazerowie",
+      "enabled": true
+    },
+    {
+      "url": "https://kgsok.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://www.sar.gov.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://www.umgdy.gov.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://www.ums.gov.pl/bezpieczenstwo-morskie/warunki-zeglugi",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/wody-polskie/komunikaty-nawigacyjne",
+      "enabled": true
+    },
+    {
+      "url": "https://meteo.imgw.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://hydro.imgw.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://baltyk.imgw.pl/",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/rcb/strona-glowna-rzadowego-centrum-bezpieczenstwa",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/mswia",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/dyplomacja/informacje-dla-podrozujacych",
+      "enabled": true
+    },
+    {
+      "url": "https://www.gov.pl/web/premier",
+      "enabled": true
+    }
+  ]
+}
