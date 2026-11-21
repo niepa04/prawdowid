@@ -39,9 +39,8 @@ DOZWOLONE WARTOŚCI POLA "type":
 - "opinion" (ocena, sąd wartościujący)
 - "non_verifiable" (wypowiedź niemożliwa do weryfikacji faktograficznej)
 
-WYMAGANY SCHEMAT JSON:
+WYMAGANY SCHEMAT JSON (NIE powtarzaj original_text, zwróć tylko pole "claims"):
 {
-  "original_text": "dokładny tekst wejściowy",
   "claims": [
     {
       "id": "k1",
@@ -255,7 +254,9 @@ async function model2(inputText, options = {}) {
     throw new Model2Error('Tekst wejściowy dla Modelu 2 musi być niepustym stringiem.', 'INVALID_INPUT');
   }
 
-  const baseUrl = (options.ollamaUrl || process.env.OLLAMA_URL || DEFAULT_OLLAMA_URL).replace(/\/+$/, '');
+  const baseUrl = (options.ollamaUrl || process.env.OLLAMA_URL || DEFAULT_OLLAMA_URL)
+    .replace(/\/api\/(generate|chat)\/?$/i, '')
+    .replace(/\/+$/, '');
   const model = options.model || process.env.OLLAMA_MODEL || DEFAULT_MODEL;
   const timeoutMs = Number(options.timeoutMs || process.env.MODEL2_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
   const fetchFn = options.fetchImpl || fetch;
@@ -278,7 +279,11 @@ async function model2(inputText, options = {}) {
         stream: false,
         think: false,
         format: 'json',
-        options: { temperature: 0 },
+        options: {
+          temperature: 0,
+          num_ctx: 16384,
+          num_predict: 8192,
+        },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userMessage },
