@@ -13,11 +13,13 @@
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "index.js",
+  "main": "app/koma.js",
   "directories": {
     "test": "test"
   },
   "scripts": {
+    "start": "node app/koma.js",
+    "dev": "node --watch app/koma.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

@@ -6,6 +6,7 @@ const {
   walidujZdjecia,
   obslugaBledow,
 } = require('./dodatki/zabezpieczenia');
+const filtrTekstu = require('./filtr_tekstu/filtr_tekstu');
 
 const os = require('os');
 
@@ -26,39 +27,54 @@ app.set('trust proxy', 'loopback');
 const jsonMaly = express.json({ limit: '200kb', strict: true });
 const jsonZdjecia = express.json({ limit: '70mb', strict: true });
 
+// TEST: tymczasowy frontend, usunąć razem z plikiem test.html
+const path = require('path');
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', app: 'prawdowid' });
+  res.sendFile(path.join(__dirname, 'test.html'));
 });
 
-// POST /api/tekst  body: { "tekst": "..." }
-app.post('/api/tekst', jsonMaly, (req, res) => {
-  const tekst = walidujTekst(req.body.tekst);
 
-  // TODO: analiza tekstu
+// TEST: wypisuje tekst z filtra w konsoli serwera
+function pokazTekst(zrodlo, tekst) {
+  console.log(`\n----- tekst z: ${zrodlo} -----\n${tekst}\n----- koniec -----`);
+}
 
-  res.json({ tekst });
+// Surowy tekst w body, bez JSON-a. Przyjmuje każdy Content-Type, domyślnie UTF-8.
+const surowyTekst = express.text({ limit: '200kb', type: () => true, defaultCharset: 'utf-8' });
+
+// POST /api/tekst  body: dowolny tekst (string)
+app.post('/api/tekst', surowyTekst, async (req, res) => {
+  const tekst = walidujTekst(req.body);
+  const wynik = await filtrTekstu.konwertuj('tekst', tekst);
+
+  pokazTekst('tekst', wynik); // TODO: dalsze przetwarzanie tekstu
+
+  res.json({ status: 'ok' });
 });
 
-// POST /api/link  body: { "linki": "https://..." } albo { "linki": ["https://...", ...] }
-app.post('/api/link', jsonMaly, (req, res) => {
+
+app.post('/api/link', jsonMaly, async (req, res) => {
   const linki = walidujLinki(req.body.linki);
+  const wynik = await filtrTekstu.konwertuj('link', linki);
 
-  // TODO: analiza linków
+  pokazTekst('link', wynik); // TODO: dalsze przetwarzanie tekstu
 
-  res.json({ linki });
+  res.json({ status: 'ok' });
 });
 
-// POST /api/zdjecie  body: { "zdjecia": "<base64>" } albo { "zdjecia": ["<base64>", ...] }
-app.post('/api/zdjecie', jsonZdjecia, (req, res) => {
+
+app.post('/api/zdjecie', jsonZdjecia, async (req, res) => {
   const zdjecia = walidujZdjecia(req.body.zdjecia);
+  const wynik = await filtrTekstu.konwertuj('zdjecie', zdjecia);
 
-  // TODO: analiza zdjęć
+  pokazTekst('zdjecie', wynik); // TODO: dalsze przetwarzanie tekstu
 
-  res.json({ zdjecia: zdjecia.map(({ typ, rozmiar }) => ({ typ, rozmiar })) });
+  res.json({ status: 'ok' });
 });
 
-// POST /api/film  - na razie pusty
+
 app.post('/api/film', (req, res) => {
+  // TODO: walidacja filmu, potem filtrTekstu.konwertuj('film', ...)
   res.status(501).json({ blad: 'Jeszcze nie zaimplementowane.' });
 });
 

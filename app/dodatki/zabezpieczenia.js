@@ -37,11 +37,11 @@ function jakoTablica(wartosc) {
 
 function walidujTekst(tekst) {
   if (typeof tekst !== 'string') {
-    throw new BladWalidacji('Pole "tekst" musi być tekstem.');
+    throw new BladWalidacji('Wyślij tekst w body zapytania.');
   }
   const czysty = wyczyscTekst(tekst);
   if (czysty.length === 0) {
-    throw new BladWalidacji('Pole "tekst" jest puste.');
+    throw new BladWalidacji('Tekst jest pusty.');
   }
   if (czysty.length > LIMITY.tekstMaxZnakow) {
     throw new BladWalidacji(`Tekst może mieć najwyżej ${LIMITY.tekstMaxZnakow} znaków.`);
@@ -106,7 +106,7 @@ function walidujZdjecia(wejscie) {
 
 // Middleware: zamienia błędy walidacji i błędy parsowania JSON na odpowiedź 400/413
 function obslugaBledow(err, req, res, next) {
-  if (err instanceof BladWalidacji) {
+  if (err instanceof BladWalidacji || err.publiczny) {
     return res.status(err.status).json({ blad: err.message });
   }
   if (err.type === 'entity.parse.failed') {

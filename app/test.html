@@ -1,0 +1,81 @@
+<!doctype html>
+<!-- test.html - tymczasowy frontend do testów, do usunięcia razem z trasą GET / w koma.js -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prawdowid test</title>
+<style>
+  body { font-family: sans-serif; max-width: 700px; margin: 20px auto; padding: 0 16px; }
+  section { border: 1px solid #ccc; padding: 12px; margin-bottom: 16px; }
+  textarea { width: 100%; box-sizing: border-box; height: 100px; }
+  pre { background: #f4f4f4; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Prawdowid - test</h1>
+<p>Odczytany tekst pojawia się w konsoli serwera.</p>
+
+<section>
+  <h2>/api/tekst</h2>
+  <textarea id="tekst" placeholder="Wpisz tekst"></textarea>
+  <button id="wyslijTekst">Wyślij</button>
+</section>
+
+<section>
+  <h2>/api/link</h2>
+  <textarea id="linki" placeholder="Jeden link w linii"></textarea>
+  <button id="wyslijLinki">Wyślij</button>
+</section>
+
+<section>
+  <h2>/api/zdjecie</h2>
+  <input type="file" id="zdjecia" accept="image/*" multiple>
+  <p>albo wklej własny Base64 (kilka zdjęć: jedno w linii):</p>
+  <textarea id="base64" placeholder="Base64, z prefiksem data:image/...;base64, albo bez"></textarea>
+  <button id="wyslijZdjecia">Wyślij</button>
+</section>
+
+<h2>Odpowiedź</h2>
+<pre id="wynik">-</pre>
+
+<script>
+const wynik = document.getElementById('wynik');
+
+async function wyslij(url, body, contentType) {
+  wynik.textContent = 'Wysyłanie...';
+  try {
+    const odp = await fetch(url, { method: 'POST', headers: { 'Content-Type': contentType }, body });
+    wynik.textContent = `HTTP ${odp.status}\n${await odp.text()}`;
+  } catch (e) {
+    wynik.textContent = 'Błąd: ' + e.message;
+  }
+}
+
+function linie(id) {
+  return document.getElementById(id).value.split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+function jakoBase64(plik) {
+  return new Promise((ok, blad) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => blad(r.error);
+    r.readAsDataURL(plik);
+  });
+}
+
+document.getElementById('wyslijTekst').onclick = () =>
+  wyslij('/api/tekst', document.getElementById('tekst').value, 'text/plain; charset=utf-8');
+
+document.getElementById('wyslijLinki').onclick = () =>
+  wyslij('/api/link', JSON.stringify({ linki: linie('linki') }), 'application/json');
+
+document.getElementById('wyslijZdjecia').onclick = async () => {
+  const pliki = [...document.getElementById('zdjecia').files];
+  const zdjecia = [...await Promise.all(pliki.map(jakoBase64)), ...linie('base64')];
+  wyslij('/api/zdjecie', JSON.stringify({ zdjecia }), 'application/json');
+};
+</script>
+</body>
+</html>
