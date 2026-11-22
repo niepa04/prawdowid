@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Ikona from './Ikona.jsx';
+import PodgladZgloszenia from './PodgladZgloszenia.jsx';
 import { werdykt, SKALA } from '../werdykty.js';
 import { bezpiecznyUrl } from '../api.js';
 
@@ -164,7 +165,7 @@ function NotatkaResearchu({ research }) {
 }
 
 // wynik: pełna odpowiedź /api/weryfikuj (Model 1 -> Research Gatherer -> Weryfikator Prawdy)
-export default function Wynik({ wynik, onOdNowa }) {
+export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
   const [pokazOdczyt, setPokazOdczyt] = useState(false);
   const [skopiowano, setSkopiowano] = useState(false);
 
@@ -218,11 +219,13 @@ export default function Wynik({ wynik, onOdNowa }) {
             </div>
           )}
 
-          {(watki[0]?.glowne.claim || dem.glowny_kontekst_twierdzenie) && (
+          {(watki[0]?.glowne.claim || dem.glowny_kontekst_twierdzenie) ? (
             <div className="twierdzenie-glowne">
               <div className="twierdzenie-glowne__etykieta">Sprawdzane twierdzenie</div>
               <p>„{watki[0]?.glowne.claim || dem.glowny_kontekst_twierdzenie}”</p>
             </div>
+          ) : (
+            <PodgladZgloszenia zgloszenie={zgloszenie} />
           )}
 
           {(watki[0]?.glowne.uzasadnienie || dem.glowna_odpowiedz) && (
@@ -271,6 +274,11 @@ export default function Wynik({ wynik, onOdNowa }) {
           <Ikona nazwa={skopiowano ? 'check' : 'kopiuj'} rozmiar={16} />
           {skopiowano ? 'Skopiowano' : 'Kopiuj wynik'}
         </button>
+        {onPopraw && (
+          <button className="przycisk-drugi" onClick={onPopraw}>
+            Popraw treść
+          </button>
+        )}
         <button className="przycisk-drugi przycisk-drugi--glowny" onClick={onOdNowa}>
           <Ikona nazwa="odswiez" rozmiar={16} />
           Sprawdź coś innego

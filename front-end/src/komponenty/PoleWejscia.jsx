@@ -67,9 +67,9 @@ function obrazyZeSchowka(dane) {
 
 // Jedno pole na wszystko: tekst, wklejone linki i zdjęcia (Ctrl+V albo z dysku).
 // Linki są wykrywane w tekście i pokazywane jako kafelki pod polem.
-export default function PoleWejscia({ onSprawdz }) {
-  const [tekst, setTekst] = useState('');
-  const [zdjecia, setZdjecia] = useState([]); // { id, nazwa, dataUrl }
+export default function PoleWejscia({ poczatkowe, onSprawdz }) {
+  const [tekst, setTekst] = useState(poczatkowe?.tekst || '');
+  const [zdjecia, setZdjecia] = useState(poczatkowe?.zdjecia || []); // { id, nazwa, dataUrl }
   const [blad, setBlad] = useState('');
   const [przeciaganie, setPrzeciaganie] = useState(false);
   const wyborPliku = useRef(null);

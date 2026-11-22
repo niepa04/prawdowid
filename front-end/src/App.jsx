@@ -9,6 +9,8 @@ import { weryfikuj } from './api.js';
 // Trzy etapy strony: wpisywanie -> sprawdzanie -> wynik (albo błąd).
 export default function App() {
   const [etap, setEtap] = useState('wpisywanie');
+  const [robocze, setRobocze] = useState({ tekst: '', zdjecia: [] });
+  const [kluczPola, setKluczPola] = useState(0);
   const [zgloszenie, setZgloszenie] = useState(null);
   const [wynik, setWynik] = useState(null);
   const [blad, setBlad] = useState('');
@@ -16,6 +18,7 @@ export default function App() {
 
   async function sprawdz(dane) {
     const numer = ++numerZapytania.current;
+    setRobocze({ tekst: dane.tekst, zdjecia: dane.zdjecia });
     setZgloszenie(dane);
     setWynik(null);
     setBlad('');
@@ -32,12 +35,22 @@ export default function App() {
     }
   }
 
+  // Powrót do pola z zachowaniem wpisanego tekstu i zdjęć (np. po Anuluj, błędzie lub „Popraw treść”)
+  function wrocDoEdycji() {
+    numerZapytania.current++;
+    setWynik(null);
+    setBlad('');
+    setEtap('wpisywanie');
+  }
+
   function odNowa() {
     numerZapytania.current++;
+    setRobocze({ tekst: '', zdjecia: [] });
     setZgloszenie(null);
     setWynik(null);
     setBlad('');
     setEtap('wpisywanie');
+    setKluczPola((k) => k + 1);
   }
 
   return (
@@ -65,9 +78,9 @@ export default function App() {
         </div>
 
         <section className="panel">
-          {etap === 'wpisywanie' && <PoleWejscia onSprawdz={sprawdz} />}
-          {etap === 'sprawdzanie' && <Sprawdzanie zgloszenie={zgloszenie} onAnuluj={odNowa} />}
-          {etap === 'wynik' && <Wynik wynik={wynik} onOdNowa={odNowa} />}
+          {etap === 'wpisywanie' && <PoleWejscia key={kluczPola} poczatkowe={robocze} onSprawdz={sprawdz} />}
+          {etap === 'sprawdzanie' && <Sprawdzanie zgloszenie={zgloszenie} onAnuluj={wrocDoEdycji} />}
+          {etap === 'wynik' && <Wynik wynik={wynik} zgloszenie={zgloszenie} onPopraw={wrocDoEdycji} onOdNowa={odNowa} />}
           {etap === 'blad' && (
             <div className="komunikat-bledu" role="alert">
               <h2>Nie udało się sprawdzić informacji</h2>
@@ -77,7 +90,7 @@ export default function App() {
                   <Ikona nazwa="odswiez" rozmiar={16} />
                   Spróbuj ponownie
                 </button>
-                <button className="przycisk-drugi" onClick={odNowa}>Wróć</button>
+                <button className="przycisk-drugi" onClick={wrocDoEdycji}>Wróć do edycji</button>
               </div>
             </div>
           )}

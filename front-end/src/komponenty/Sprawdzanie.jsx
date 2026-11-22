@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Ikona from './Ikona.jsx';
+import PodgladZgloszenia from './PodgladZgloszenia.jsx';
 
 // Etapy pokazywane podczas sprawdzania. Serwer nie raportuje jeszcze postępu,
 // więc etapy przechodzą po szacowanym czasie, a ostatni trwa, dopóki nie przyjdzie odpowiedź.
@@ -37,6 +38,7 @@ export default function Sprawdzanie({ zgloszenie, onAnuluj }) {
 
   return (
     <div className="sprawdzanie" aria-live="polite">
+      <PodgladZgloszenia zgloszenie={zgloszenie} etykieta="Sprawdzane zgłoszenie" />
       <div className="postep">
         <div className="postep__pasek" style={{ width: `${procent}%` }} />
       </div>
