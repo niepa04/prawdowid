@@ -183,3 +183,72 @@ test('Weryfikator: stanowisko bez dosłownego fragmentu z materiału nie rozstrz
   const prawdziwy = sprawdzTeze({ typ: 'fakt', werdykt: 'Potwierdzone', uzasadnienie: 'MSZ informuje o strajku.', dowody: [{ nr: 1, na_temat: true, stanowisko: 'potwierdza', fragment: 'zapowiedziano strajk generalny' }] }, [m]);
   assert.equal(prawdziwy.werdykt, 'Potwierdzone');
 });
+
+test('Awaria wyszukiwania: "Nie można teraz sprawdzić" zamiast "brak dowodów", bez weryfikatora', async () => {
+  let weryfikatorWolany = false;
+  const wynik = await uruchomPipeline(
+    { tekst: 'Szczepionki powodują autyzm.' },
+    {
+      model1Impl: async (d) => d.tekst,
+      researchImpl: async () => ({
+        plan: { temat: 't', pytania_badawcze: [] },
+        materialy: [],
+        notatka: { streszczenie: '' },
+        ostrzezenia: ['Baza fact-checkerów Google była niedostępna (fetch failed).'],
+        status: 'technical_error',
+        dostepnosc: { awaria: true, baza_fact_checkerow: false, zrodla_oficjalne: false },
+      }),
+      weryfikatorImpl: async () => {
+        weryfikatorWolany = true;
+        return {};
+      },
+    }
+  );
+  assert.equal(wynik.status, 'unavailable');
+  assert.equal(wynik.werdykt_ogolny, 'Nie można teraz sprawdzić');
+  assert.match(wynik.demagog.glowna_odpowiedz, /NIE znaczy, że nie ma/);
+  assert.equal(weryfikatorWolany, false);
+});
+
+test('Niedostępna baza fact-checkerów: "brak dowodów" zamieniony na "Nie można teraz sprawdzić"', async () => {
+  const wynik = await uruchomPipeline(
+    { tekst: 'Coś się wydarzyło w Warszawie.' },
+    {
+      model1Impl: async (d) => d.tekst,
+      researchImpl: async () => ({
+        plan: { temat: 't', pytania_badawcze: [] },
+        materialy: [M(1)],
+        notatka: { streszczenie: '' },
+        ostrzezenia: [],
+        status: 'completed',
+        dostepnosc: { awaria: false, baza_fact_checkerow: false, zrodla_oficjalne: true },
+      }),
+      weryfikatorImpl: async () => ({
+        werdykt_ogolny: 'Brak wystarczających dowodów',
+        twierdzenia: [
+          { claim_id: 't1', claim: 'A', werdykt: 'Brak wystarczających dowodów' },
+          { claim_id: 't2', claim: 'B', werdykt: 'Fałszywe' },
+        ],
+      }),
+    }
+  );
+  assert.equal(wynik.werdykt_ogolny, 'Nie można teraz sprawdzić');
+  assert.equal(wynik.demagog.twierdzenia[0].werdykt, 'Nie można teraz sprawdzić');
+  assert.equal(wynik.demagog.twierdzenia[1].werdykt, 'Fałszywe');
+});
+
+test('Model nie odpowiada: błąd 503 z informacją, że teraz nie da się sprawdzić', async () => {
+  await assert.rejects(
+    uruchomPipeline(
+      { tekst: 'Szczepionki powodują autyzm.' },
+      {
+        model1Impl: async (d) => d.tekst,
+        researchImpl: async () => ({ plan: { pytania_badawcze: [] }, materialy: [M(1)], notatka: {}, ostrzezenia: [], dostepnosc: { awaria: false, baza_fact_checkerow: true } }),
+        weryfikatorImpl: async () => {
+          throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } });
+        },
+      }
+    ),
+    (err) => err.status === 503 && /nie da się teraz/.test(err.message)
+  );
+});

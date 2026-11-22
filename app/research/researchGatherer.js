@@ -166,7 +166,23 @@ async function zbierz(tekst, plan, options) {
     }));
 
   const ostrzezenia = [...new Set((wynikM3.claims || []).flatMap((c) => c.warnings || []))];
-  return { materialy, ostrzezenia, status: wynikM3.status, security_flags: wynikM3.security_flags || [] };
+  return { materialy, ostrzezenia, status: wynikM3.status, security_flags: wynikM3.security_flags || [], dostepnosc: ocenDostepnosc(wynikM3, ostrzezenia, materialy) };
+}
+
+// Czy wyszukiwanie w ogóle działało. Brak materiałów przy NIEDZIAŁAJĄCEJ wyszukiwarce to nie
+// "brak dowodów", tylko "nie da się teraz sprawdzić" - użytkownik musi dostać tę informację.
+//   awaria       - nic nie dało się przeszukać (wszystkie źródła i baza fact-checkerów niedostępne)
+//   fact_checkery - baza fact-checkerów (główne źródło ocen) nie odpowiadała
+function ocenDostepnosc(wynikM3, ostrzezenia, materialy) {
+  const bazaFactCheckerow = !ostrzezenia.some((o) => /Baza fact-checkerów Google była niedostępna/i.test(o));
+  const zrodlaPadly = wynikM3.status === 'technical_error' ||
+    ostrzezenia.some((o) => /Żadne z wybranych źródeł nie było technicznie dostępne/i.test(o));
+  const awaria = materialy.length === 0 && (wynikM3.status === 'technical_error' || (!bazaFactCheckerow && zrodlaPadly));
+  return {
+    awaria,
+    baza_fact_checkerow: bazaFactCheckerow,
+    zrodla_oficjalne: !zrodlaPadly,
+  };
 }
 
 async function napiszNotatke(tekst, plan, materialy, options) {
@@ -230,6 +246,10 @@ async function zbierzResearch(tekst, options = {}) {
     return { plan, materialy: [], notatka: { streszczenie: 'Zgłoszenie jest opinią – nie wymaga researchu faktów.', ustalenia: [], oceny_fact_checkerow: [], luki: [], metoda: 'opinia' }, ostrzezenia: [], status: 'no_results', security_flags: [], czas_ms: Date.now() - start };
   }
   const zebrane = await zbierz(tekst, plan, options);
+  if (zebrane.dostepnosc.awaria) {
+    const notatka = { streszczenie: 'Wyszukiwanie źródeł było niedostępne – nie udało się niczego przeszukać.', ustalenia: [], oceny_fact_checkerow: [], luki: plan.pytania_badawcze.map((p) => p.pytanie), metoda: 'awaria_wyszukiwania' };
+    return { plan, ...zebrane, notatka, czas_ms: Date.now() - start };
+  }
   const notatka = await napiszNotatke(tekst, plan, zebrane.materialy, options);
   return { plan, ...zebrane, notatka, czas_ms: Date.now() - start };
 }

@@ -221,7 +221,10 @@ async function weryfikujPrawde(tekst, research, options = {}) {
       fetchImpl: options.fetchImpl,
     });
   } catch (err) {
-    odpowiedz = null;
+    // Bez modelu nie ma weryfikacji. Nie udajemy "braku dowodów" - pipeline zamieni ten błąd
+    // na komunikat, że teraz nie da się tego sprawdzić.
+    err.message = `model weryfikujący nie odpowiedział (${err.message})`;
+    throw err;
   }
 
   let tezyModelu = Array.isArray(odpowiedz?.tezy) ? odpowiedz.tezy.filter((t) => t && t.cytat).slice(0, MAX_TEZ) : [];
