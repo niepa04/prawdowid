@@ -53,6 +53,15 @@ export default function App() {
     setKluczPola((k) => k + 1);
   }
 
+  function pokazJakDziala(e) {
+    if (etap === 'wpisywanie') return;
+    e.preventDefault();
+    wrocDoEdycji();
+    requestAnimationFrame(() => {
+      document.getElementById('jak-to-dziala')?.scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+
   return (
     <div className="strona">
       <header className="gora">
@@ -62,7 +71,7 @@ export default function App() {
             <span className="znak__nazwa">Koma</span>
           </button>
           <nav className="gora__menu">
-            <a href="#jak-to-dziala">Jak to działa</a>
+            <a href="#jak-to-dziala" onClick={pokazJakDziala}>Jak to działa</a>
             <a href="#o-projekcie">O projekcie</a>
           </nav>
         </div>
@@ -113,7 +122,7 @@ export default function App() {
               <li className="krok">
                 <span className="krok__ikona"><Ikona nazwa="tarcza" rozmiar={22} /></span>
                 <strong>Dostaniesz werdykt</strong>
-                <span>Porówna podane informacje ze zweryfikowaną bazą faktów, na podstawie której dowiesz się prawdy.</span>
+                <span>Sprawdzi treść w oficjalnych źródłach oraz u niezależnych fact-checkerów.</span>
               </li>
             </ol>
           </section>
@@ -124,9 +133,11 @@ export default function App() {
         <div className="szerokosc">
           <nav className="dol__linki">
             <a href="#o-projekcie">O projekcie</a>
-            <a href="#jak-to-dziala">Jak to działa</a>
-            <a href="#kontakt">Kontakt</a>
+            <a href="#jak-to-dziala" onClick={pokazJakDziala}>Jak to działa</a>
           </nav>
+          <p className="dol__info">
+            Koma pomaga szybko sprawdzić informacje z sieci na podstawie oficjalnych źródeł i baz fact-checkingowych.
+          </p>
         </div>
       </footer>
     </div>
