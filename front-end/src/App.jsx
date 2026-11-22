@@ -127,7 +127,7 @@ export default function App() {
         <div className="naglowek">
           <h1 className="logo">Koma</h1>
           <p className="rozwiniecie">
-            <strong>K</strong>oniec <strong>o</strong>szustw, <strong>m</strong>anipulacji i <strong>a</strong>bsurdów
+            <strong>K</strong>atalog <strong>O</strong>biektywnych <strong>M</strong>ateriałów i <strong>A</strong>naliz
           </p>
           <p className="haslo">Sprawdź, zanim udostępnisz</p>
         </div>

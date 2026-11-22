@@ -1,4 +1,4 @@
-// api.js - komunikacja z backendem (app/koma.js). W trybie dev Vite przekierowuje /api na port 3000.
+// api.js - komunikacja z backendem (backend/serwer.js). W trybie dev Vite przekierowuje /api na port 3000.
 
 export class BladApi extends Error {
   constructor(wiadomosc, status) {

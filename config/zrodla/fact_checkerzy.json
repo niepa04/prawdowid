@@ -1,0 +1,16 @@
+{
+  "opis": "Niezależni fact-checkerzy. 'zaufani' - tylko ich oceny z Google Fact Check Tools API są brane pod uwagę i tylko te hosty przepuszcza końcowa zapora wyszukiwarki dowodów. 'przegladani' - ich artykuły wyszukiwarka otwiera i czyta (muszą też być w zrodla_oficjalne.json).",
+  "zaufani": [
+    "demagog.org.pl",
+    "sprawdzam.afp.com",
+    "konkret24.tvn24.pl",
+    "fakenews.pl"
+  ],
+  "przegladani": [
+    "demagog.org.pl"
+  ],
+  "google_fact_check_api": {
+    "adres": "https://factchecktools.googleapis.com/v1alpha1/claims:search",
+    "jezyk": "pl"
+  }
+}

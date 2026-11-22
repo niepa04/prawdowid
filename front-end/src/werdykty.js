@@ -1,4 +1,4 @@
-// Werdykty zwracane przez moduł Demagog (app/demagog/demagog.js) i ich wygląd na stronie.
+// Werdykty zwracane przez Weryfikator Prawdy (backend/weryfikator/) i ich wygląd na stronie.
 // klasa = nazwa koloru w style.css, skala = miejsce na pasku (null = poza skalą)
 
 export const WERDYKTY = {

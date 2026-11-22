@@ -1,7 +1,7 @@
 {
   "name": "hacknation2026",
   "version": "1.0.0",
-  "description": "",
+  "description": "Koma - Katalog Obiektywnych Materiałów i Analiz. Weryfikacja informacji z użyciem oficjalnych źródeł i fact-checkerów.",
   "homepage": "https://github.com/niepa04/prawdowid#readme",
   "bugs": {
     "url": "https://github.com/niepa04/prawdowid/issues"
@@ -13,16 +13,17 @@
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "app/koma.js",
+  "main": "backend/serwer.js",
   "directories": {
-    "test": "test"
+    "test": "tests"
   },
   "scripts": {
-    "start": "node app/koma.js",
-    "dev": "node --watch app/koma.js",
+    "start": "node backend/serwer.js",
+    "dev": "node --watch backend/serwer.js",
     "build": "npm run build --prefix front-end",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "test:werdykty": "node testy/test_werdyktow.js"
+    "dev:front": "npm run dev --prefix front-end",
+    "test": "node --test \"backend/**/*.test.js\"",
+    "test:werdykty": "node tests/test_werdyktow.js"
   },
   "dependencies": {
     "express": "^5.3.0"
