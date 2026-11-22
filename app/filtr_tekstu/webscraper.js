@@ -76,6 +76,9 @@ const ENCJE = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
   ndash: '–', mdash: '—', hellip: '…', laquo: '«', raquo: '»',
   bdquo: '„', rdquo: '”', ldquo: '“', lsquo: '‘', rsquo: '’', copy: '©', reg: '®', deg: '°',
+  oacute: 'ó', Oacute: 'Ó', eacute: 'é', aacute: 'á', iacute: 'í', uacute: 'ú', uuml: 'ü', ouml: 'ö',
+  auml: 'ä', Uuml: 'Ü', Ouml: 'Ö', Auml: 'Ä', szlig: 'ß', euro: '€', middot: '·', bull: '•', shy: '',
+  times: '×', minus: '−', sect: '§', para: '¶', trade: '™', zwnj: '', zwj: '', thinsp: ' ', ensp: ' ', emsp: ' ',
 };
 
 function dekodujEncje(tekst) {
@@ -84,15 +87,107 @@ function dekodujEncje(tekst) {
       const liczba = kod[1].toLowerCase() === 'x' ? parseInt(kod.slice(2), 16) : parseInt(kod.slice(1), 10);
       return liczba > 0 && liczba <= 0x10ffff ? String.fromCodePoint(liczba) : '';
     }
-    return ENCJE[kod.toLowerCase()] ?? calosc;
+    return ENCJE[kod] ?? ENCJE[kod.toLowerCase()] ?? calosc;
   });
 }
 
+// Maksymalna długość tekstu artykułu przekazywanego dalej (modele szybciej czytają krótszy tekst)
+const MAX_ZNAKOW_ARTYKULU = 8000;
+
+// Wartość atrybutu content z <meta property|name="...">
+function meta(html, nazwy) {
+  for (const n of nazwy) {
+    const re1 = new RegExp(`<meta[^>]+(?:property|name|itemprop)=["']${n}["'][^>]*content=["']([^"']+)["']`, 'i');
+    const re2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name|itemprop)=["']${n}["']`, 'i');
+    const m = re1.exec(html) || re2.exec(html);
+    if (m) return dekodujEncje(m[1]).trim();
+  }
+  return '';
+}
+
+// Tytuł, opis i data publikacji z nagłówka strony
+function metadaneStrony(html) {
+  const tytul = meta(html, ['og:title', 'twitter:title']) ||
+    dekodujEncje((/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] || '').replace(/\s+/g, ' ')).trim();
+  const opis = meta(html, ['og:description', 'description', 'twitter:description']);
+  let data = meta(html, ['article:published_time', 'datePublished', 'date', 'dc.date', 'publish-date']) ||
+    /"datePublished"\s*:\s*"([^"]+)"/.exec(html)?.[1] ||
+    /<time[^>]+datetime=["']([^"']+)["']/i.exec(html)?.[1] || '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(data)) data = data.slice(0, 10);
+  return { tytul, opis, data };
+}
+
+// Wszystkie bloki <tag>...</tag> (bez zagnieżdżeń tego samego znacznika - dla article/main wystarcza)
+function bloki(html, tag) {
+  return [...html.matchAll(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'gi'))].map((m) => m[1]);
+}
+
+// Ile "prawdziwego" tekstu (w akapitach <p>) zawiera fragment HTML
+function iloscTresci(fragment) {
+  return bloki(fragment, 'p').reduce((s, p) => s + p.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().length, 0);
+}
+
+// Wybiera fragment strony z treścią: <article> albo <main> z największą liczbą tekstu w akapitach.
+// Strony bez takich znaczników (albo z pustym <article>, np. menu) -> całe <body>.
+function glownaTresc(html) {
+  const kandydaci = [...bloki(html, 'article'), ...bloki(html, 'main')]
+    .map((f) => ({ f, ile: iloscTresci(f) }))
+    .sort((a, b) => b.ile - a.ile);
+  if (kandydaci[0] && kandydaci[0].ile >= 300) return kandydaci[0].f;
+  return /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(html)?.[1] || html;
+}
+
+// Usuwa serie krótkich linii bez kropki (menu, okruszki, przyciski "Udostępnij" itp.)
+function usunSerieMenu(tekst) {
+  const linie = tekst.split('\n');
+  const krotka = (l) => l.trim().length > 0 && l.trim().length < 45 && !/[.!?:;]$/.test(l.trim());
+  const wynik = [];
+  for (let i = 0; i < linie.length; ) {
+    if (!krotka(linie[i])) { wynik.push(linie[i]); i++; continue; }
+    let j = i;
+    while (j < linie.length && (krotka(linie[j]) || linie[j].trim() === '')) j++;
+    const seria = linie.slice(i, j).filter((l) => l.trim());
+    if (seria.length < 4) wynik.push(...linie.slice(i, j)); // pojedyncze nagłówki zostają
+    i = j;
+  }
+  return wynik.join('\n');
+}
+
+// Przycina tekst do limitu na granicy akapitu
+function przytnij(tekst, max) {
+  if (tekst.length <= max) return tekst;
+  const ciecie = tekst.lastIndexOf('\n', max);
+  return `${tekst.slice(0, ciecie > max * 0.6 ? ciecie : max).trim()}\n[…]`;
+}
+
 const webscraper = {
-  // link: string (URL po walidacji) -> string (sam tekst strony)
+  // link: string (URL po walidacji) -> string (tytuł, opis, data i treść artykułu bez menu i stopek)
   async pobierz(link) {
     const html = await this.pobierzHtml(link);
-    return this.usunHtml(html);
+    return this.wyodrebnijArtykul(html);
+  },
+
+  // html: string -> string. Szuka głównej treści i odrzuca nawigację, stopki, ramki boczne.
+  wyodrebnijArtykul(html) {
+    const czysty = html
+      .replace(/<!--[\s\S]*?-->/g, ' ')
+      .replace(/<(script|style|noscript|svg|template|iframe)\b[\s\S]*?<\/\1\s*>/gi, ' ');
+    const { tytul, opis, data } = metadaneStrony(czysty);
+    const fragment = glownaTresc(czysty)
+      .replace(/<(nav|header|footer|aside|form|button|select|dialog)\b[\s\S]*?<\/\1\s*>/gi, ' ')
+      .replace(/<sup\b[^>]*class=["'][^"']*reference[^"']*["'][\s\S]*?<\/sup>/gi, '') // przypisy [1] z Wikipedii
+      .replace(/<span\b[^>]*class=["'][^"']*mw-editsection[^"']*["'][\s\S]*?<\/span>\s*<\/span>/gi, '');
+    let tresc = usunSerieMenu(this.usunHtml(fragment));
+    // Wikipedia i podobne: lista przypisów i bibliografia to nie treść artykułu
+    tresc = tresc.replace(/\n(Przypisy|Bibliografia|Linki zewnętrzne|Zobacz też|References)\n[\s\S]*$/, '').trim();
+
+    const naglowek = [
+      tytul && `Tytuł: ${tytul}`,
+      data && `Data publikacji: ${data}`,
+      opis && !tresc.includes(opis.slice(0, 60)) && `Opis: ${opis}`,
+    ].filter(Boolean).join('\n');
+    const calosc = [naglowek, tresc].filter(Boolean).join('\n\n');
+    return przytnij(calosc, MAX_ZNAKOW_ARTYKULU);
   },
 
   // Pobiera surowy HTML. Przekierowania obsługujemy ręcznie, żeby sprawdzić każdy adres.
@@ -170,7 +265,8 @@ const webscraper = {
         .replace(/<[^>]+>/g, ' ')
     )
       .replace(/[ \t\f\v ]+/g, ' ')
-      .replace(/ *\n */g, '\n')
+      .replace(/ *\r?\n */g, '\n')
+      .replace(/\r/g, '')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
   },

@@ -42,6 +42,9 @@ async function zapytajModelJson(p) {
       return JSON.parse(dane?.message?.content ?? dane?.response);
     } catch (err) {
       ostatni = err;
+      // Po przekroczeniu czasu nie ponawiamy - druga próba tylko podwoiłaby czekanie.
+      // Ponawiamy przy błędach HTTP i niepoprawnym JSON-ie.
+      if (err?.name === 'TimeoutError' || err?.name === 'AbortError') break;
     }
   }
   throw ostatni;

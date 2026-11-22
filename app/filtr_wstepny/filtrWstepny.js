@@ -63,7 +63,7 @@ async function filtrujZgloszenie(tekst, options = {}) {
     const odp = await fetchFn(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(options.timeoutMs || 30000),
+      signal: AbortSignal.timeout(options.timeoutMs || 60000),
       body: JSON.stringify({
         model: options.model || process.env.FILTR_MODEL || 'qwen3.5:9b',
         stream: false,

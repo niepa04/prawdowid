@@ -217,7 +217,7 @@ async function weryfikujPrawde(tekst, research, options = {}) {
       ].join('\n'),
       numCtx: 16384,
       numPredict: 2000,
-      timeoutMs: 150000,
+      timeoutMs: 240000,
       fetchImpl: options.fetchImpl,
     });
   } catch (err) {

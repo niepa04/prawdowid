@@ -40,7 +40,9 @@ async function przygotujZdjecie(plik) {
     i.src = dataUrl;
   });
   const skala = Math.min(1, MAX_BOK / Math.max(img.width, img.height));
-  if (skala === 1 && plik.size <= MAX_BAJTOW) return dataUrl;
+  // Model OCR czyta tylko PNG i JPEG - WebP, AVIF, GIF, BMP, HEIC itp. zawsze przerabiamy na JPEG
+  const formatOcr = /^data:image\/(png|jpe?g);/i.test(dataUrl);
+  if (formatOcr && skala === 1 && plik.size <= MAX_BAJTOW) return dataUrl;
 
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(img.width * skala);

@@ -64,7 +64,8 @@ app.get('/api/status', (req, res) => {
 // Odpowiedź: { status, werdykt_ogolny, tekst, model1, research, demagog (werdykty), metadane }
 // Górny limit czasu na jedno sprawdzenie: zawieszone zapytanie do serwera modeli nie może
 // blokować użytkownika w nieskończoność (w teście jedno zapytanie wisiało 7,5 minuty).
-const MAX_CZAS_SPRAWDZENIA_MS = Number(process.env.KOMA_MAX_CZAS_MS) || 4 * 60 * 1000;
+// Długie artykuły z linków potrzebują więcej czasu, stąd 8 minut.
+const MAX_CZAS_SPRAWDZENIA_MS = Number(process.env.KOMA_MAX_CZAS_MS) || 8 * 60 * 1000;
 
 app.post('/api/weryfikuj', jsonZapytanie, async (req, res) => {
   let stoper;
@@ -110,7 +111,7 @@ function adresyTailscale() {
 
 if (require.main === module) {
   const server = app.listen(PORT, HOST, () => {
-    console.log(`Serwer KOMA (Model 1 -> Model 2 -> Model 3) działa na http://localhost:${PORT}`);
+    console.log(`Serwer KOMA (Model 1 -> Research Gatherer -> Weryfikator Prawdy) działa na http://localhost:${PORT}`);
     if (HOST === '0.0.0.0') {
       const ts = adresyTailscale();
       if (ts.length) {
@@ -120,8 +121,8 @@ if (require.main === module) {
       }
     }
   });
-  // Długi limit czasu dla zapytań zawierających OCR + filtrowanie + Model 2 + Model 3
-  server.requestTimeout = 600000;
+  // Limit połączenia musi być dłuższy niż limit samego sprawdzania (OCR + research + weryfikator)
+  server.requestTimeout = MAX_CZAS_SPRAWDZENIA_MS + 2 * 60 * 1000;
 }
 
 module.exports = app;

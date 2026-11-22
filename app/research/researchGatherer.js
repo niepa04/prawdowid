@@ -69,7 +69,7 @@ async function zaplanuj(tekst, options) {
       user: `DZISIAJ: ${new Date().toISOString().slice(0, 10)}\n<ZGLOSZENIE>\n${skroc(tekst, 8000)}\n</ZGLOSZENIE>`,
       numCtx: 8192,
       numPredict: 500,
-      timeoutMs: 60000,
+      timeoutMs: 120000,
       fetchImpl: options.fetchImpl,
     });
     const pytania = (Array.isArray(plan?.pytania_badawcze) ? plan.pytania_badawcze : [])
@@ -185,7 +185,7 @@ async function napiszNotatke(tekst, plan, materialy, options) {
       ].join('\n'),
       numCtx: 16384,
       numPredict: 1200,
-      timeoutMs: 120000,
+      timeoutMs: 240000,
       fetchImpl: options.fetchImpl,
     });
     const nrOk = (x) => Number.isInteger(Number(x)) && materialy[Number(x) - 1];

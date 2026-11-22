@@ -239,7 +239,8 @@ const filtrTekstu = {
           signal: AbortSignal.timeout(MODELE.timeoutMs),
         });
         if (!odp.ok) {
-          throw new Error(`HTTP ${odp.status}`);
+          const tresc = await odp.text().catch(() => '');
+          throw new Error(`HTTP ${odp.status}${tresc ? `: ${tresc.slice(0, 200)}` : ''}`);
         }
         const dane = await odp.json();
         if (dane.done === true && typeof dane.response === 'string') {
