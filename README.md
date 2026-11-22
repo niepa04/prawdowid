@@ -8,6 +8,18 @@ Dla każdego twierdzenia system zwraca jeden z 5 werdyktów (**Potwierdzone**, *
 
 ---
 
+## 🎬 Film demonstracyjny (3 min)
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=hbNvKO5etng">
+    <img src="https://img.youtube.com/vi/hbNvKO5etng/maxresdefault.jpg" alt="Koma – zanim informacja stanie się plotką (film demonstracyjny)" width="720">
+  </a>
+</p>
+
+**[▶ Obejrzyj na YouTube: „Koma – zanim informacja stanie się plotką”](https://www.youtube.com/watch?v=hbNvKO5etng)** — prawdziwe nagrania działania: rozmowa o rzekomym ataku dronów i weryfikacja na Discordzie, strona WWW, rozszerzenie przeglądarki, werdykty *Brak wystarczających dowodów*, *Fałszywe* i *Potwierdzone* ze źródłami oraz **Radar pytań** dla analityków.
+
+---
+
 ## 🌐 Działająca wersja demonstracyjna (Live Demo dla Jury)
 
 > **Ważna informacja dla Jury:**  
@@ -233,10 +245,10 @@ Koma nie traktuje internetu jako otwartego korpusu i nie pozwala modelowi język
 |---|---|
 | **Halucynacje modelu** | Model nie może wydać werdyktu z własnej pamięci. Reguły w kodzie (`weryfikatorPrawdy.js`, `evidenceMatcher.js`) wymuszają dosłowny cytat obecny w pobranym materiale oraz zgodność dat, godzin i liczb. Brak dowodu w tekście źródła automatycznie wymusza werdykt *„Brak wystarczających dowodów”*. |
 | **Stronniczość źródeł** | Łączenie źródeł pierwotnych (komunikaty i pomiary urzędowe) z wieloma niezależnymi redakcjami fact-checkingowymi (IFCN/EFCSN). Sama domena ani link z zaufanego źródła nie przesądzają o werdykcie — system wyklucza link z zapytania użytkownika i szuka niezależnych potwierdzeń. |
-| **Prywatność i RODO** | Deterministyczny filtr (`daneOsobowe.js`: PESEL, dokumenty, IBAN, karty płatnicze, telefony, e-maile, adresy) oraz klasyfikator danych osób prywatnych blokują zgłoszenie **zanim** trafi ono do wyszukiwarki lub bazy SQLite. Możliwość usunięcia historii sesji jednym kliknięciem. |
+| **Prywatność i RODO** | Deterministyczny filtr (`daneOsobowe.js`: PESEL, dokumenty, IBAN, karty płatnicze, telefony, e-maile, adresy) oraz klasyfikator danych osób prywatnych blokują zgłoszenie **zanim** trafi ono do wyszukiwarki lub bazy SQLite. Możliwość usunięcia historii sesji jednym kliknięciem. Dziennik sprawdzeń (pytanie, czas, źródła, wynik) przechowywany 30 dni, z usuwaniem wpisu przez `DELETE /api/sprawdzenia/:id`. |
 | **Prompt injection** | Ścisła separacja promptów systemowych od danych (losowe separatory kryptograficzne w filtrze tematu), skanowanie pobranych stron pod kątem instrukcji sterujących (`security_flags`), brak wykonywania kodu/narzędzi przez LLM oraz weryfikacja, że wyodrębniona teza i cytaty są podciągami tekstu wejściowego/źródłowego. |
 | **Dostępność i awarie** | Rozdzielenie błędów technicznych (`status: "unavailable"`, werdykt techniczny *„Nie można teraz sprawdzić”*) od braku dowodów. Zabezpieczenia WAF/Cloudflare/CAPTCHA stron źródłowych nie są obchodzone — niedostępność źródła jest jawnie raportowana. |
-| **Nadużycia i SSRF** | Filtr antyspamowy i tematyczny na wejściu; blokada adresów lokalnych, prywatnych sieci IP (w tym Tailscale `100.64.0.0/10`) i przekierowań poza zatwierdzone domeny (`sourceFetcher.js`, `webscraper.js`). |
+| **Nadużycia i SSRF** | Filtr antyspamowy i tematyczny na wejściu; blokada adresów lokalnych, prywatnych sieci IP (w tym Tailscale `100.64.0.0/10`) i przekierowań poza zatwierdzone domeny (`sourceFetcher.js`, `webscraper.js`). Limit 10 sprawdzeń na minutę z jednego adresu IP (odpowiedź `429`). |
 
 **Znane ograniczenia:** prototyp weryfikuje obrazy poprzez OCR tekstu oraz detekcję AI (`ai-image-detector`), ale nie wykonuje pełnego odwrotnego wyszukiwania obrazu (reverse image search) w płatnych indeksach zewnętrznych ani transkrypcji nagrań wideo (zgłoszenie wideo zwraca jawny kod `501`).
 
