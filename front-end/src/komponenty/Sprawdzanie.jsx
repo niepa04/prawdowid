@@ -6,13 +6,13 @@ import PodgladZgloszenia from './PodgladZgloszenia.jsx';
 // więc etapy przechodzą po szacowanym czasie, a ostatni trwa, dopóki nie przyjdzie odpowiedź.
 function etapy({ linki, zdjecia }) {
   return [
-    { nazwa: 'Rozdzielanie tekstu, linków i zdjęć', czas: 1500 },
+    { nazwa: 'Przygotowanie zgłoszenia', czas: 1500 },
     zdjecia.length > 0 && { nazwa: `Odczytywanie tekstu ze ${zdjecia.length === 1 ? 'zdjęcia' : 'zdjęć'}`, czas: 8000 * zdjecia.length },
-    linki.length > 0 && { nazwa: `Pobieranie ${linki.length === 1 ? 'strony' : 'stron'} z linków`, czas: 4000 },
-    { nazwa: 'Wybieranie informacji na temat', czas: 6000 },
-    { nazwa: 'Rozbijanie na twierdzenia do sprawdzenia', czas: 10000 },
-    { nazwa: 'Szukanie dowodów w oficjalnych źródłach', czas: 15000 },
-    { nazwa: 'Wydawanie werdyktu', czas: Infinity },
+    linki.length > 0 && { nazwa: `Pobieranie ${linki.length === 1 ? 'strony z linku' : 'stron z linków'}`, czas: 4000 },
+    { nazwa: 'Wybieranie najważniejszych informacji', czas: 6000 },
+    { nazwa: 'Wyodrębnianie twierdzeń do sprawdzenia', czas: 10000 },
+    { nazwa: 'Szukanie dowodów w źródłach', czas: 15000 },
+    { nazwa: 'Przygotowanie werdyktu', czas: Infinity },
   ].filter(Boolean);
 }
 
@@ -58,7 +58,7 @@ export default function Sprawdzanie({ zgloszenie, onAnuluj }) {
         })}
       </ol>
       <div className="sprawdzanie__dol">
-        <span>Trwa {sekundy} s. Dokładne sprawdzenie może zająć do kilku minut.</span>
+        <span>Czas: {sekundy} s · Zwykle zajmuje to kilkadziesiąt sekund.</span>
         <button className="przycisk-maly" onClick={onAnuluj}>Anuluj</button>
       </div>
     </div>

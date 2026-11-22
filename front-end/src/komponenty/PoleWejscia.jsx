@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import Ikona from './Ikona.jsx';
+import { odmiana } from '../odmiana.js';
 
 const WZOR_LINKU = /https?:\/\/[^\s<>"'`()[\]{}]+/gi;
 
@@ -119,9 +120,16 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
 
   const podsumowanie = [
     tekst.trim() && 'tekst',
-    linki.length && `${linki.length} ${linki.length === 1 ? 'link' : 'linki'}`,
-    zdjecia.length && `${zdjecia.length} ${zdjecia.length === 1 ? 'zdjęcie' : 'zdjęcia'}`,
+    linki.length && `${linki.length} ${odmiana(linki.length, 'link', 'linki', 'linków')}`,
+    zdjecia.length && `${zdjecia.length} ${odmiana(zdjecia.length, 'zdjęcie', 'zdjęcia', 'zdjęć')}`,
   ].filter(Boolean);
+
+  function obsluzKlawisz(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      wyslij();
+    }
+  }
 
   return (
     <div className="wejscie">
@@ -133,10 +141,11 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
       >
         <textarea
           className="pole__tekst"
-          placeholder="Wklej informację do sprawdzenia: tekst, link albo zrzut ekranu"
+          placeholder="Wpisz lub wklej tekst, link albo zrzut ekranu"
           value={tekst}
           onChange={(e) => { setTekst(e.target.value); setBlad(''); }}
           onPaste={wklej}
+          onKeyDown={obsluzKlawisz}
           rows={4}
         />
 
@@ -172,7 +181,7 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
             <Ikona nazwa="zdjecie" rozmiar={16} />
             Dodaj zdjęcie
           </button>
-          <span className="pole__podpowiedz">albo wklej Ctrl+V, przeciągnij plik</span>
+          <span className="pole__podpowiedz">lub wklej (Ctrl+V) albo upuść plik</span>
           {podsumowanie.length > 0 && <span className="pole__licznik">{podsumowanie.join(' · ')}</span>}
           <input
             ref={wyborPliku}
@@ -188,13 +197,13 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
       {blad && <p className="blad">{blad}</p>}
 
       <button className="przycisk-glowny" onClick={wyslij}>
-        Sprawdź prawdziwość
+        Weryfikuj
       </button>
 
       <ul className="zalety">
         <li><Ikona nazwa="check" rozmiar={16} />Teksty, linki i zrzuty ekranu</li>
-        <li><Ikona nazwa="check" rozmiar={16} />Porównanie z bazą Demagoga</li>
-        <li><Ikona nazwa="check" rozmiar={16} />Wynik w kilkanaście sekund</li>
+        <li><Ikona nazwa="check" rozmiar={16} />Oficjalne źródła i fact-checkerzy</li>
+        <li><Ikona nazwa="check" rozmiar={16} />Werdykt z listą źródeł</li>
       </ul>
     </div>
   );

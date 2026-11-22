@@ -3,6 +3,7 @@ import Ikona from './Ikona.jsx';
 import PodgladZgloszenia from './PodgladZgloszenia.jsx';
 import { werdykt, SKALA } from '../werdykty.js';
 import { bezpiecznyUrl } from '../api.js';
+import { odmiana } from '../odmiana.js';
 
 function Zrodlo({ zrodlo }) {
   const url = bezpiecznyUrl(zrodlo.url);
@@ -94,7 +95,7 @@ function Podsumowanie({ watki, nazwaOgolna }) {
       <div className="werdykt__etykieta">Werdykt ogólny</div>
       <div className="podsumowanie__nazwa">{nazwaOgolna}</div>
       <p className="podsumowanie__opis">
-        Sprawdziliśmy {watki.length} {watki.length < 5 ? 'wątki' : 'wątków'}. Każdy z nich oceniamy osobno poniżej.
+        Sprawdziliśmy {watki.length} {odmiana(watki.length, 'wątek', 'wątki', 'wątków')}. Każdy z nich oceniamy osobno poniżej.
       </p>
       <div className="podsumowanie__liczby">
         {[...liczby.entries()].map(([nazwa, ile]) => (
@@ -119,7 +120,7 @@ function NotatkaResearchu({ research }) {
         <span className={`rozwin__strzalka ${otwarta ? 'rozwin__strzalka--otwarta' : ''}`}>
           <Ikona nazwa="strzalka" rozmiar={16} />
         </span>
-        Notatka z researchu ({materialy.length} {materialy.length === 1 ? 'materiał' : 'materiałów'})
+        Szczegóły analizy ({materialy.length} {odmiana(materialy.length, 'materiał', 'materiały', 'materiałów')})
       </button>
       {otwarta && (
         <div className="notatka">
@@ -259,7 +260,7 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
             <span className={`rozwin__strzalka ${pokazOdczyt ? 'rozwin__strzalka--otwarta' : ''}`}>
               <Ikona nazwa="strzalka" rozmiar={16} />
             </span>
-            Co odczytaliśmy z Twojego zgłoszenia
+            Pełna odczytana treść
           </button>
           {pokazOdczyt && (
             <div className="odczytano">
@@ -281,7 +282,7 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
         )}
         <button className="przycisk-drugi przycisk-drugi--glowny" onClick={onOdNowa}>
           <Ikona nazwa="odswiez" rozmiar={16} />
-          Sprawdź coś innego
+          Nowe sprawdzenie
         </button>
       </div>
       {czas != null && <p className="czas">Sprawdzono w {Math.round(czas / 1000)} s</p>}
