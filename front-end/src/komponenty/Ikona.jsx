@@ -15,6 +15,8 @@ const SCIEZKI = {
   tarcza: 'M12 3l7 3v6c0 4-3 7.5-7 9c-4-1.5-7-5-7-9V6z M9 12l2 2 4-4',
   pobierz: 'M12 4v11 M7 11l5 5 5-5 M5 19h14',
   glosnik: 'M11 5L6 9H3v6h3l5 4z M15.5 8.5a5 5 0 0 1 0 7 M18.5 5.5a9 9 0 0 1 0 13',
+  radar: 'M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16.2 7.8a6 6 0 0 1 0 8.4 M19.1 4.9a10 10 0 0 1 0 14.2 M7.8 16.2a6 6 0 0 1 0 -8.4 M4.9 19.1a10 10 0 0 1 0 -14.2',
+  wykres: 'M3 3v18h18 M7 15l4-4 3 3 5-6',
 };
 
 export default function Ikona({ nazwa, rozmiar = 18 }) {

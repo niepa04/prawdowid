@@ -52,3 +52,41 @@ export async function pobierzStatus() {
     return null;
   }
 }
+
+export async function pobierzAlerty({ status = 'aktywne_i_monitorowane', limit = 50 } = {}) {
+  const params = new URLSearchParams({ status, limit: String(limit) });
+  let odp;
+  try {
+    odp = await fetch(`/api/alerty?${params.toString()}`);
+  } catch {
+    throw new BladApi('Nie udało się pobrać danych monitoringu z serwera.', 0);
+  }
+  const dane = await odp.json().catch(() => null);
+  if (!odp.ok) throw new BladApi(dane?.blad || `Błąd serwera ${odp.status}.`, odp.status);
+  return dane;
+}
+
+export async function pobierzSzczegolyKlastra(id) {
+  const odp = await fetch(`/api/alerty/${encodeURIComponent(id)}`);
+  const dane = await odp.json().catch(() => null);
+  if (!odp.ok) throw new BladApi(dane?.blad || `Błąd serwera ${odp.status}.`, odp.status);
+  return dane;
+}
+
+export async function zmienStatusAlertu(alertId, status) {
+  const odp = await fetch(`/api/alerty/${encodeURIComponent(alertId)}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  const dane = await odp.json().catch(() => null);
+  if (!odp.ok) throw new BladApi(dane?.blad || `Błąd serwera ${odp.status}.`, odp.status);
+  return dane;
+}
+
+export async function wymusAnalizeMonitoringu() {
+  const odp = await fetch('/api/alerty/analizuj', { method: 'POST' });
+  const dane = await odp.json().catch(() => null);
+  if (!odp.ok) throw new BladApi(dane?.blad || `Błąd serwera ${odp.status}.`, odp.status);
+  return dane;
+}

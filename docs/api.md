@@ -81,3 +81,10 @@ stron publicznych (adresy wewnętrzne są blokowane).
 | 504 | sprawdzanie trwało dłużej niż limit (domyślnie 8 minut) |
 
 Błąd ma postać `{ "blad": "komunikat po polsku" }`.
+
+## Monitoring i system alertów w tle
+
+- `GET /api/alerty?status=aktywne_i_monitorowane&limit=50` – statystyki dzienne/godzinne, aktywne alerty podejrzanej nadaktywności z podsumowaniem sytuacyjnym i bilansem werdyktów oraz lista klastrów tematycznych.
+- `GET /api/alerty/:id` – szczegóły wskazanego klastra tematycznego oraz pogrupowane warianty pytań użytkowników.
+- `POST /api/alerty/:id/status` (lub `PATCH`) – zmiana statusu alertu (`{ "status": "aktywny" | "monitorowany" | "zamkniety" }`).
+- `POST /api/alerty/analizuj` – ręczne uruchomienie przeliczenia kolejki tła i detektora nadaktywności.

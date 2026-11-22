@@ -63,8 +63,13 @@ filtr i awarię wyszukiwania. Szczegóły: [API](api.md).
 > Pole z werdyktami nazywa się `demagog` z powodów historycznych (pierwsza wersja modułu werdyktów).
 > Zawiera wynik Weryfikatora Prawdy.
 
-## Pętla informacji
+## Pętla informacji i monitoring trendów w tle
 
 Sprawy, których nie udało się rozstrzygnąć („Brak wystarczających dowodów”), trafiają do rejestru
 `backend/dane/nierozstrzygniete.json` (bez duplikatów). To lista tematów, dla których warto dodać źródła.
 Zgłoszenia zablokowane (dane osobowe) i przy awarii wyszukiwania do rejestru nie trafiają.
+
+Równolegle działa komponent monitoringu (`backend/monitoring_promptow/`), który:
+- zapisuje w bazie SQLite (`backend/dane/monitoring.sqlite`) wyłącznie zanonimizowane zgłoszenia po przejściu filtrów prywatności i antyspamowych (dane osobowe nigdy nie trafiają do bazy),
+- w asynchronicznej kolejce tła (poza ścieżką odpowiedzi HTTP użytkownika) grupuje semantycznie różne sformułowania dotyczące tego samego tematu przy użyciu modelu `qwen3.5:9b` (z szybką ścieżką hash dla powtórzeń i trybem awaryjnym),
+- wykrywa podejrzaną nadaktywność i przygotowuje antydezinformacyjne podsumowanie sytuacyjne (dla użytkowników i instytucji publicznych) oparte wyłącznie na twardych liczbach z bazy i bilansie werdyktów KOMA.

@@ -4,9 +4,10 @@
 // więc model albo adres serwera można zmienić bez edycji kodu.
 //
 // Role modeli:
-//   ocr       - odczyt tekstu ze zdjęć i zrzutów ekranu (model wizyjny)
-//   filtr     - filtr tematu (Model 1) i filtr wstępny zgłoszeń
-//   analiza   - Research Gatherer (plan, notatka) i Weryfikator Prawdy
+//   ocr        - odczyt tekstu ze zdjęć i zrzutów ekranu (model wizyjny)
+//   filtr      - filtr tematu (Model 1) i filtr wstępny zgłoszeń
+//   analiza    - Research Gatherer (plan, notatka) i Weryfikator Prawdy
+//   monitoring - grupowanie promptów w tle i podsumowania alertów nadaktywności
 
 const env = process.env;
 
@@ -20,6 +21,7 @@ const MODELE = {
   ocr: env.OCR_MODEL || 'glm-ocr:latest',
   filtr: env.FILTR_MODEL || 'qwen3.5:9b',
   analiza: env.KOMA_MODEL || env.OLLAMA_MODEL || 'qwen3.5:9b',
+  monitoring: env.MONITORING_MODEL || env.FILTR_MODEL || 'qwen3.5:9b',
 };
 
 // Parametry dla każdego zadania: który model, rozmiar kontekstu (numCtx), maks. długość odpowiedzi
@@ -32,6 +34,9 @@ const ZADANIA = {
   planResearchu: { model: MODELE.analiza, numCtx: 8192, numPredict: 500, timeoutMs: 120000 },
   notatkaResearchu: { model: MODELE.analiza, numCtx: 16384, numPredict: 1200, timeoutMs: 240000 },
   weryfikator: { model: MODELE.analiza, numCtx: 16384, numPredict: 2000, timeoutMs: 240000 },
+  // Zadania działające w tle (poza ścieżką odpowiedzi dla użytkownika)
+  grupowaniePromptow: { model: MODELE.monitoring, numCtx: 8192, numPredict: 320, timeoutMs: 45000, proby: 2 },
+  podsumowanieAlertu: { model: MODELE.monitoring, numCtx: 12288, numPredict: 700, timeoutMs: 60000, proby: 2 },
   // Sędzia w testach jakości (tests/test_werdyktow.js)
   sedziaTestow: { model: MODELE.filtr, numCtx: 4096, numPredict: 80, timeoutMs: 60000 },
 };

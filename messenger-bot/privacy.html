@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Polityka Prywatności – KOMA (PRAWDOWID)</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #e2e8f0;
+      --accent: #2563eb;
+      --warn-bg: #fef3c7;
+      --warn-text: #92400e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      padding: 24px 16px;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px 28px;
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.85rem;
+      line-height: 1.25;
+      color: var(--text);
+    }
+    .subtitle {
+      color: var(--muted);
+      margin-top: -6px;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+    }
+    h2 {
+      margin-top: 28px;
+      margin-bottom: 10px;
+      font-size: 1.2rem;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+    p, li { color: #1e293b; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    .todo {
+      display: inline-block;
+      background: var(--warn-bg);
+      color: var(--warn-text);
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.92em;
+    }
+    .notice {
+      background: #eff6ff;
+      border-left: 4px solid var(--accent);
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin: 16px 0;
+      font-size: 0.95rem;
+    }
+    footer {
+      margin-top: 36px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    @media (max-width: 600px) {
+      .container { padding: 20px 16px; }
+      h1 { font-size: 1.45rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Polityka Prywatności – KOMA (PRAWDOWID)</h1>
+    <p class="subtitle">Ostatnia aktualizacja: <span class="todo">[UZUPEŁNIJ: data publikacji]</span></p>
+
+    <div class="notice">
+      Niniejsza Polityka Prywatności opisuje zasady przetwarzania danych w związku z korzystaniem z bota
+      <strong>KOMA (PRAWDOWID)</strong> działającego na platformie Facebook Messenger.
+    </div>
+
+    <h2>1. Administrator danych osobowych</h2>
+    <p>Administratorem danych przetwarzanych w ramach usługi KOMA (PRAWDOWID) jest:</p>
+    <ul>
+      <li>Nazwa / Imię i nazwisko: <span class="todo">[UZUPEŁNIJ: Imię i nazwisko / Nazwa firmy lub organizacji]</span></li>
+      <li>Adres: <span class="todo">[UZUPEŁNIJ: Adres korespondencyjny]</span></li>
+      <li>Dane rejestrowe (jeśli dotyczy): <span class="todo">[UZUPEŁNIJ: NIP / KRS / REGON lub usuń, jeśli nie dotyczy]</span></li>
+      <li>Kontakt w sprawach prywatności: <span class="todo">[UZUPEŁNIJ: Adres e-mail kontaktowy]</span></li>
+    </ul>
+
+    <h2>2. Zakres przetwarzanych danych</h2>
+    <p>Podczas korzystania z bota na platformie Facebook Messenger przetwarzane mogą być następujące dane przekazane przez użytkownika lub platformę Meta:</p>
+    <ul>
+      <li><strong>Identyfikator użytkownika strony (PSID)</strong> – techniczny identyfikator nadawany przez Facebook Messenger w celu odesłania odpowiedzi.</li>
+      <li><strong>Treść wiadomości tekstowych i linki</strong> – przesyłane dobrowolnie przez użytkownika do weryfikacji.</li>
+      <li><strong>Załączniki graficzne (zdjęcia / zrzuty ekranu)</strong> – pobierane tymczasowo z serwerów Meta w celu odczytania tekstu (OCR) i weryfikacji zawartych w nich twierdzeń.</li>
+      <li><strong>Dane techniczne żądań</strong> – podstawowe logi pracy serwera (np. zanonimizowany skrót PSID, długość wiadomości, liczba załączników, kody błędów HTTP).</li>
+    </ul>
+
+    <h2>3. Cele i podstawy przetwarzania danych</h2>
+    <ul>
+      <li><strong>Weryfikacja informacji na żądanie użytkownika</strong> – odbiór wiadomości, analiza twierdzeń, wyszukiwanie źródeł i odesłanie wyniku na Messengerze.</li>
+      <li><strong>Zapewnienie bezpieczeństwa i diagnoza błędów</strong> – wykrywanie nieprawidłowych żądań oraz awarii technicznych.</li>
+      <li>Podstawa prawna RODO: <span class="todo">[UZUPEŁNIJ: potwierdzenie właściwej podstawy prawnej, np. art. 6 ust. 1 lit. b lub lit. f RODO]</span>.</li>
+    </ul>
+
+    <h2>4. Sposób działania systemu AI (KOMA)</h2>
+    <p>
+      Przesłany materiał jest przetwarzany automatycznie przez wieloetapowy pipeline KOMA:
+      (1) ekstrakcja tekstu z wiadomości, linków i zdjęć (OCR),
+      (2) wyodrębnienie pojedynczych twierdzeń,
+      (3) wyszukanie dowodów w katalogu źródeł oraz bazach fact-checkingowych,
+      (4) wygenerowanie werdyktu i uzasadnienia.
+      Bot nie podejmuje decyzji wywołujących skutki prawne wobec użytkownika.
+    </p>
+
+    <h2>5. Przekazywanie danych do usług zewnętrznych</h2>
+    <p>W celu realizacji funkcji bota dane mogą być przekazywane do następujących usług:</p>
+    <ul>
+      <li><strong>Meta Platforms (Facebook Messenger Graph API)</strong> – odbiór wiadomości użytkowników i wysyłka odpowiedzi zwrotnych.</li>
+      <li><strong>Ollama (serwer modeli językowych i OCR)</strong> – przetwarzanie tekstu oraz obrazów w ramach analizy AI na skonfigurowanym serwerze <span class="todo">[UZUPEŁNIJ: lokalizacja/właściciel serwera Ollama, np. serwer własny / uczelniany / chmurowy]</span>.</li>
+      <li><strong>Google Fact Check Tools API</strong> (opcjonalnie, jeśli aktywowano klucz API) – wyszukiwanie istniejących ocen fact-checkerów dla wyodrębnionych twierdzeń.</li>
+      <li><strong>Publiczne źródła internetowe</strong> – pobieranie treści stron z linków podanych przez użytkownika lub wyszukiwanych podczas weryfikacji.</li>
+    </ul>
+
+    <h2>6. Okres przechowywania danych</h2>
+    <p>
+      W obecnym kodzie aplikacji <code>messenger-bot</code> oraz backendu KOMA nie zastosowano bazy danych do długoterminowego
+      zapisywania treści wiadomości użytkowników — treść wiadomości i zdjęcia są przetwarzane w pamięci operacyjnej na czas realizacji zapytania.
+    </p>
+    <p>
+      Okres przechowywania logów systemowych / serwera oraz kopii zapasowych po stronie hostingu:
+      <span class="todo">[UZUPEŁNIJ: dokładny okres przechowywania logów, np. 7 dni / 30 dni]</span>.
+    </p>
+
+    <h2>7. Prawa użytkowników</h2>
+    <p>Osobom, których dane dotyczą, przysługują prawa wynikające z RODO, w tym:</p>
+    <ul>
+      <li>prawo dostępu do danych oraz uzyskania ich kopii,</li>
+      <li>prawo do sprostowania danych,</li>
+      <li>prawo do usunięcia danych („prawo do bycia zapomnianym”),</li>
+      <li>prawo do ograniczenia przetwarzania oraz wniesienia sprzeciwu,</li>
+      <li>prawo do wniesienia skargi do organu nadzorczego (Prezes Urzędu Ochrony Danych Osobowych).</li>
+    </ul>
+
+    <h2>8. Procedura żądania usunięcia danych</h2>
+    <p>
+      Aby zażądać usunięcia swoich danych, skontaktuj się z administratorem pod adresem:
+      <span class="todo">[UZUPEŁNIJ: Adres e-mail kontaktowy]</span>, podając przybliżoną datę korespondencji lub
+      identyfikator pozwalający odnaleźć zgłoszenie (np. PSID).
+      Termin realizacji żądania: <span class="todo">[UZUPEŁNIJ: np. bez zbędnej zwłoki, nie później niż w ciągu 30 dni]</span>.
+    </p>
+
+    <h2>9. Pliki cookie</h2>
+    <p>
+      Niniejsza strona polityki prywatności (<code>/privacy</code>) oraz endpoint webhooka (<code>/webhook</code>)
+      nie wykorzystują własnych plików cookie do śledzenia użytkowników ani celów marketingowych.
+    </p>
+
+    <footer>
+      Dokument wygenerowany dla projektu KOMA (PRAWDOWID) • Wymaga uzupełnienia pól oznaczonych jako [UZUPEŁNIJ] przed publikacją.
+    </footer>
+  </main>
+</body>
+</html>

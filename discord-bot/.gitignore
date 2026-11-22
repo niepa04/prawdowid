@@ -1,0 +1,12 @@
+# Zmienne środowiskowe (zawiera DISCORD_TOKEN)
+.env
+.env.*
+!.env.example
+
+# Zależności
+node_modules/
+
+# Logi
+logs/
+*.log
+npm-debug.log*

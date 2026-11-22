@@ -29,6 +29,7 @@ config/
 | `ocr` | `glm-ocr:latest` | odczyt tekstu ze zdjęć | `OCR_MODEL` |
 | `filtr` | `qwen3.5:9b` | filtr tematu, filtr wstępny, sędzia testów | `FILTR_MODEL` |
 | `analiza` | `qwen3.5:9b` | Research Gatherer, Weryfikator Prawdy | `KOMA_MODEL` |
+| `monitoring` | `qwen3.5:9b` | grupowanie promptów i podsumowania alertów w tle | `MONITORING_MODEL` |
 
 Adres serwera Ollama: `OLLAMA_URL` (domyślnie adres serwera modeli w sieci Tailscale zespołu).
 

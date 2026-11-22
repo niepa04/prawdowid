@@ -1,0 +1,15 @@
+{
+  "name": "messenger-bot",
+  "version": "1.0.0",
+  "description": "Webhook Facebook Messenger dla systemu KOMA (PRAWDOWID)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test messenger.test.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0"
+  }
+}

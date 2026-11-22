@@ -26,6 +26,8 @@ module.exports = {
     researchPlan: require('./prompty/researchPlan'),
     researchNotatka: require('./prompty/researchNotatka'),
     weryfikator: require('./prompty/weryfikator'),
+    grupowaniePromptow: require('./prompty/grupowaniePromptow'),
+    podsumowanieAlertu: require('./prompty/podsumowanieAlertu'),
     sedziaTestow: require('./prompty/sedziaTestow'),
   },
 };

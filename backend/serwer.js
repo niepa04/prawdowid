@@ -1,6 +1,8 @@
-// serwer.js - serwer Komy (Express): strona, API /api/weryfikuj i /api/status.
+// serwer.js - serwer Komy (Express): strona, API /api/weryfikuj, /api/alerty i /api/status.
 // Sprawdzanie: ekstrakcja treści -> ochrona danych osobowych -> filtr wstępny
 //              -> Research Gatherer (+ wyszukiwarka dowodów) -> Weryfikator Prawdy (pipeline.js)
+// Monitoring i alarmowanie: backend/monitoring_promptow/ (zapis w SQLite, grupowanie AI i wykrywanie
+//                           nadaktywności działają całkowicie w tle poza ścieżką odpowiedzi HTTP).
 // Ustawienia (port, limity, modele, prompty, źródła): folder config/ w głównym katalogu.
 
 // Ustawienia lokalne (np. GOOGLE_FACTCHECK_API_KEY) z pliku .env w głównym folderze.
@@ -13,116 +15,162 @@ try {
 }
 
 const express = require('express');
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { obslugaBledow } = require('./wspolne/zabezpieczenia');
+const { obslugaBledow, BladWalidacji } = require('./wspolne/zabezpieczenia');
 const { uruchomPipeline } = require('./pipeline');
 const { createSourceRegistry } = require('./wyszukiwarka_dowodow/sourceRegistry');
+const { pobierzDomyslnyMonitoring, STATUSY_ALERTU } = require('./monitoring_promptow');
 
-const app = express();
-
-// Port, host i limit czasu: config/ustawienia.js.
-// HOST 0.0.0.0 = nasłuch na wszystkich interfejsach, w tym na Tailscale (100.x.y.z).
-// Przy "tailscale serve" można ustawić HOST=127.0.0.1, wtedy ruch idzie tylko przez proxy Tailscale.
 const { PORT, HOST, MAX_CZAS_SPRAWDZENIA_MS } = require('../config/ustawienia');
 
-app.disable('x-powered-by');
-
-// "tailscale serve" działa jako lokalne proxy, ufamy tylko nagłówkom X-Forwarded-* z localhosta
-app.set('trust proxy', 'loopback');
-
-// Jedno zapytanie może zawierać do 10 zdjęć po 5 MB (w Base64 ~4/3 większe), stąd 70 MB
-const jsonZapytanie = express.json({ limit: '70mb', strict: true });
-
-// Strona Koma (React) zbudowana poleceniem "npm run build" -> front-end/dist.
-// Dzięki temu jeden serwer (Express, port 3000) daje i stronę, i API - na ten adres prowadzi
-// też przycisk "Otwórz Koma w przeglądarce" w rozszerzeniu. Bez zbudowanej strony pod "/"
-// jest krótka informacja, jak ją zbudować.
 const FOLDER_STRONY = path.join(__dirname, '..', 'front-end', 'dist');
-const stronaZbudowana = require('fs').existsSync(path.join(FOLDER_STRONY, 'index.html'));
+const DOZWOLONE_FILTRY_ALERTOW = new Set(['aktywny', 'monitorowany', 'zamkniety', 'wszystkie', 'aktywne_i_monitorowane']);
 
-if (stronaZbudowana) {
-  // index.html bez cache (po "npm run build" przeglądarka od razu dostaje nową wersję);
-  // pliki z assets/ mają hash w nazwie, więc mogą być cache'owane
-  app.use(
-    express.static(FOLDER_STRONY, {
-      index: 'index.html',
-      setHeaders: (res, sciezka) => {
-        res.setHeader('Cache-Control', /[\\/]assets[\\/]/.test(sciezka) ? 'public, max-age=31536000, immutable' : 'no-cache');
-      },
-    })
-  );
-} else {
-  app.get('/', (req, res) => {
-    res
-      .type('html')
-      .send(
-        '<!doctype html><meta charset="utf-8"><title>Koma</title>' +
-          '<body style="font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 16px;line-height:1.5">' +
-          '<h1>Koma – serwer działa</h1><p>Strona nie jest jeszcze zbudowana. W głównym folderze projektu uruchom ' +
-          '<code>npm run build</code> i odśwież tę stronę.</p><p>API: <code>POST /api/weryfikuj</code>, ' +
-          '<a href="/api/status">/api/status</a></p></body>'
-      );
+function utworzSerwer(opcje = {}) {
+  const app = express();
+  const stronaZbudowana = fs.existsSync(path.join(FOLDER_STRONY, 'index.html'));
+  const pobierzMonitoring = () => (opcje.monitoring !== undefined ? opcje.monitoring : pobierzDomyslnyMonitoring());
+
+  app.disable('x-powered-by');
+  // "tailscale serve" działa jako lokalne proxy, ufamy tylko nagłówkom X-Forwarded-* z localhosta
+  app.set('trust proxy', 'loopback');
+
+  // Jedno zapytanie może zawierać do 10 zdjęć po 5 MB (w Base64 ~4/3 większe), stąd 70 MB
+  const jsonZapytanie = express.json({ limit: '70mb', strict: true });
+  const jsonMaly = express.json({ limit: '16kb', strict: true });
+
+  if (stronaZbudowana) {
+    app.use(
+      express.static(FOLDER_STRONY, {
+        index: 'index.html',
+        setHeaders: (res, sciezka) => {
+          res.setHeader('Cache-Control', /[\\/]assets[\\/]/.test(sciezka) ? 'public, max-age=31536000, immutable' : 'no-cache');
+        },
+      })
+    );
+    app.get('/alarmy', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(path.join(FOLDER_STRONY, 'index.html'));
+    });
+  } else {
+    app.get('/', (req, res) => {
+      res
+        .type('html')
+        .send(
+          '<!doctype html><meta charset="utf-8"><title>Koma</title>' +
+            '<body style="font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 16px;line-height:1.5">' +
+            '<h1>Koma – serwer działa</h1><p>Strona nie jest jeszcze zbudowana. W głównym folderze projektu uruchom ' +
+            '<code>npm run build</code> i odśwież tę stronę.</p><p>API: <code>POST /api/weryfikuj</code>, ' +
+            '<a href="/api/status">/api/status</a>, <a href="/api/alerty">/api/alerty</a></p></body>'
+        );
+    });
+  }
+
+  // Status serwera, podpiętych modułów i kolejki monitoringu w tle
+  app.get('/api/status', (req, res) => {
+    let zrodla = null;
+    try {
+      const reg = createSourceRegistry();
+      zrodla = { lacznie: reg.allSources.length, aktywne: reg.enabledSources.length };
+    } catch (err) {
+      zrodla = { blad: err.message };
+    }
+    const mon = pobierzMonitoring();
+    res.json({
+      status: 'ok',
+      app: 'prawdowid',
+      pipeline: ['ekstrakcja_tresci', 'ochrona_danych_osobowych', 'filtr_wstepny', 'research_gatherer', 'wyszukiwarka_dowodow', 'weryfikator_prawdy'],
+      zrodla_oficjalne: zrodla,
+      monitoring: mon ? mon.statystykiKolejki() : { aktywny: false },
+    });
   });
+
+  // Panel monitoringu trendów i alertów podejrzanej nadaktywności
+  app.get('/api/alerty', (req, res) => {
+    const mon = pobierzMonitoring();
+    const status = req.query.status ? String(req.query.status) : 'aktywne_i_monitorowane';
+    if (!DOZWOLONE_FILTRY_ALERTOW.has(status)) {
+      throw new BladWalidacji('Nieprawidłowy parametr "status".');
+    }
+    const limitRaw = req.query.limit !== undefined ? Number(req.query.limit) : 50;
+    if (!Number.isFinite(limitRaw) || limitRaw < 1 || limitRaw > 200) {
+      throw new BladWalidacji('Parametr "limit" musi być liczbą od 1 do 200.');
+    }
+    res.json(mon.pobierzPanel({ statusAlertu: status, limit: Math.floor(limitRaw) }));
+  });
+
+  // Wymuszenie natychmiastowego przejrzenia kolejki tła (np. w panelu analitycznym)
+  app.post('/api/alerty/analizuj', async (req, res) => {
+    const mon = pobierzMonitoring();
+    const wynik = await mon.przetworzWszystkoTeraz({ wymusPodsumowanie: true });
+    res.json({ ok: true, ...wynik, panel: mon.pobierzPanel() });
+  });
+
+  // Szczegóły konkretnego klastra tematycznego oraz pogrupowanych wariantów pytań
+  app.get('/api/alerty/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!/^\d+$/.test(req.params.id) || id < 1) {
+      throw new BladWalidacji('Identyfikator klastra musi być dodatnią liczbą całkowitą.');
+    }
+    const szczegoly = pobierzMonitoring().pobierzSzczegoly(id);
+    if (!szczegoly) return res.status(404).json({ blad: 'Nie znaleziono tematu.' });
+    return res.json(szczegoly);
+  });
+
+  // Zmiana statusu alertu (aktywny / monitorowany / zamkniety)
+  const obsluzZmianeStatusu = (req, res) => {
+    const id = Number(req.params.id);
+    if (!/^\d+$/.test(req.params.id) || id < 1) {
+      throw new BladWalidacji('Identyfikator alertu musi być dodatnią liczbą całkowitą.');
+    }
+    const status = req.body && typeof req.body.status === 'string' ? req.body.status.trim() : '';
+    if (!STATUSY_ALERTU.has(status)) {
+      throw new BladWalidacji('Pole "status" musi mieć wartość: aktywny, monitorowany albo zamkniety.');
+    }
+    const zaktualizowany = pobierzMonitoring().zmienStatusAlertu(id, status);
+    if (!zaktualizowany) return res.status(404).json({ blad: 'Nie znaleziono alertu.' });
+    return res.json({ ok: true, alert: zaktualizowany });
+  };
+  app.post('/api/alerty/:id/status', jsonMaly, obsluzZmianeStatusu);
+  app.patch('/api/alerty/:id/status', jsonMaly, obsluzZmianeStatusu);
+
+  // POST /api/weryfikuj - główna weryfikacja (monitoring działa w tle i nie opóźnia odpowiedzi)
+  app.post('/api/weryfikuj', jsonZapytanie, async (req, res) => {
+    let stoper;
+    const limit = new Promise((_, odrzuc) => {
+      stoper = setTimeout(() => {
+        const blad = new Error('Sprawdzanie trwało zbyt długo (serwer modeli jest przeciążony). Spróbuj ponownie za chwilę.');
+        blad.status = 504;
+        blad.publiczny = true;
+        odrzuc(blad);
+      }, MAX_CZAS_SPRAWDZENIA_MS);
+    });
+    let wynik;
+    try {
+      wynik = await Promise.race([uruchomPipeline(req.body, { monitoringImpl: pobierzMonitoring() }), limit]);
+    } finally {
+      clearTimeout(stoper);
+    }
+
+    console.log(
+      `[KOMA] /api/weryfikuj -> werdykt="${wynik.werdykt_ogolny}" | status=${wynik.status} | tez=${wynik.metadane.liczba_twierdzen} | materiałów=${wynik.metadane.liczba_dowodow} | czasy: M1=${wynik.model1.czas_ms}ms RESEARCH=${wynik.research?.czas_ms ?? 0}ms WERYFIKATOR=${wynik.demagog?.czas_ms ?? 0}ms`
+    );
+
+    res.json(wynik);
+  });
+
+  app.use((req, res) => {
+    res.status(404).json({ blad: 'Nie znaleziono.' });
+  });
+
+  app.use(obslugaBledow);
+  return app;
 }
 
-// Status serwera i podpiętych modułów
-app.get('/api/status', (req, res) => {
-  let zrodla = null;
-  try {
-    const reg = createSourceRegistry();
-    zrodla = { lacznie: reg.allSources.length, aktywne: reg.enabledSources.length };
-  } catch (err) {
-    zrodla = { blad: err.message };
-  }
-  res.json({
-    status: 'ok',
-    app: 'prawdowid',
-    pipeline: ['ekstrakcja_tresci', 'ochrona_danych_osobowych', 'filtr_wstepny', 'research_gatherer', 'wyszukiwarka_dowodow', 'weryfikator_prawdy'],
-    zrodla_oficjalne: zrodla,
-  });
-});
-
-// POST /api/weryfikuj  body (JSON), każde pole opcjonalne, przynajmniej jedno niepuste:
-// {
-//   "tekst":   "dowolny tekst, może zawierać linki i wklejone zdjęcia data:image/...;base64,...",
-//   "linki":   "https://..." albo ["https://...", ...],
-//   "zdjecia": "<base64>"    albo ["<base64>", ...],
-//   "film":    null (jeszcze nieobsługiwany)
-// }
-// Odpowiedź: { status, werdykt_ogolny, tekst, model1, research, demagog (werdykty), metadane }
-// Górny limit czasu na jedno sprawdzenie (MAX_CZAS_SPRAWDZENIA_MS, config/ustawienia.js): zawieszone
-// zapytanie do serwera modeli nie może blokować użytkownika w nieskończoność.
-
-app.post('/api/weryfikuj', jsonZapytanie, async (req, res) => {
-  let stoper;
-  const limit = new Promise((_, odrzuc) => {
-    stoper = setTimeout(() => {
-      const blad = new Error('Sprawdzanie trwało zbyt długo (serwer modeli jest przeciążony). Spróbuj ponownie za chwilę.');
-      blad.status = 504;
-      blad.publiczny = true;
-      odrzuc(blad);
-    }, MAX_CZAS_SPRAWDZENIA_MS);
-  });
-  let wynik;
-  try {
-    wynik = await Promise.race([uruchomPipeline(req.body), limit]);
-  } finally {
-    clearTimeout(stoper);
-  }
-
-  console.log(
-    `[KOMA] /api/weryfikuj -> werdykt="${wynik.werdykt_ogolny}" | status=${wynik.status} | tez=${wynik.metadane.liczba_twierdzen} | materiałów=${wynik.metadane.liczba_dowodow} | czasy: M1=${wynik.model1.czas_ms}ms RESEARCH=${wynik.research?.czas_ms ?? 0}ms WERYFIKATOR=${wynik.demagog?.czas_ms ?? 0}ms`
-  );
-
-  res.json(wynik);
-});
-
-app.use((req, res) => {
-  res.status(404).json({ blad: 'Nie znaleziono.' });
-});
-
-app.use(obslugaBledow);
+const app = utworzSerwer();
+app.utworzSerwer = utworzSerwer;
 
 // Adresy Tailscale mieszczą się w zakresie 100.64.0.0/10
 function adresyTailscale() {
@@ -137,11 +185,16 @@ function adresyTailscale() {
 }
 
 if (require.main === module) {
+  const stronaZbudowana = fs.existsSync(path.join(FOLDER_STRONY, 'index.html'));
+  const monitoring = pobierzDomyslnyMonitoring();
+  monitoring.startujWorkerTla();
+
   const server = app.listen(PORT, HOST, () => {
     console.log(`Serwer KOMA działa na http://localhost:${PORT}`);
     console.log(stronaZbudowana
       ? 'Strona Koma: zbudowana wersja z front-end/dist (po zmianach we frontendzie: npm run build)'
       : 'Strona Koma nie jest zbudowana - zbuduj ją: npm run build');
+    console.log(`Monitoring tła:     ${monitoring.aktywny ? 'aktywny (SQLite + qwen3.5:9b)' : 'wyłączony'}`);
     if (HOST === '0.0.0.0') {
       const ts = adresyTailscale();
       if (ts.length) {
@@ -153,6 +206,14 @@ if (require.main === module) {
   });
   // Limit połączenia musi być dłuższy niż limit samego sprawdzania (OCR + research + weryfikator)
   server.requestTimeout = MAX_CZAS_SPRAWDZENIA_MS + 2 * 60 * 1000;
+
+  const zamknijCzysto = async () => {
+    server.close();
+    await monitoring.zamknij().catch(() => {});
+    process.exit(0);
+  };
+  process.once('SIGINT', zamknijCzysto);
+  process.once('SIGTERM', zamknijCzysto);
 }
 
 module.exports = app;

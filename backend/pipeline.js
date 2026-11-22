@@ -9,6 +9,7 @@
 // Prompty, modele, źródła i limity: folder config/ w głównym katalogu.
 // Odpowiedź ma dotychczasowy kształt (werdykt_ogolny, demagog.twierdzenia, ...), żeby frontend
 // i test działały bez zmian; dochodzi pole "research" z planem, materiałami i notatką.
+const crypto = require('crypto');
 const { walidujZapytanie, BladWalidacji } = require('./wspolne/zabezpieczenia');
 const filtrTekstu = require('./ekstrakcja/ekstrakcjaTresci');
 const { zbierzResearch } = require('./research/researchGatherer');
@@ -16,6 +17,7 @@ const { weryfikujPrawde } = require('./weryfikator/weryfikatorPrawdy');
 const { filtrujZgloszenie } = require('./filtr_wstepny/filtrWstepny');
 const { zarejestrujNierozstrzygniete } = require('./wspolne/rejestrNierozstrzygnietych');
 const { sprawdzDaneOsobowe } = require('./ochrona_danych/daneOsobowe');
+const { pobierzDomyslnyMonitoring } = require('./monitoring_promptow');
 
 const ZABLOKOWANE_DANE = 'Zablokowano: dane osobowe';
 
@@ -150,7 +152,7 @@ function oznaczNiedostepne(weryfikacja) {
 
 /**
  * @param {object} body - Surowe body zapytania HTTP { tekst?, linki?, zdjecia?, film? }
- * @param {object} [options] - podstawienia do testów: model1Impl, filtrImpl, researchImpl, weryfikatorImpl, rejestrImpl
+ * @param {object} [options] - podstawienia do testów: model1Impl, filtrImpl, researchImpl, weryfikatorImpl, rejestrImpl, monitoringImpl
  * @returns {Promise<object>}
  */
 async function uruchomPipeline(body, options = {}) {
@@ -161,103 +163,147 @@ async function uruchomPipeline(body, options = {}) {
   const model1Fn = options.model1Impl || ((dane) => filtrTekstu.konwertuj(dane));
   const researchFn = options.researchImpl || ((tekst) => zbierzResearch(tekst, options.research || {}));
   const weryfikatorFn = options.weryfikatorImpl || ((tekst, research) => weryfikujPrawde(tekst, research, options.weryfikator || {}));
+  const monitoring = options.monitoringImpl !== undefined ? options.monitoringImpl : trybTestowy ? null : pobierzDomyslnyMonitoring();
+  const idZgloszenia = crypto.randomUUID();
+  let zapisanoWMonitoringu = false;
 
-  // 0. Walidacja danych wejściowych
-  const dane = walidujZapytanie(body);
-
-  // 1. MODEL 1 – ekstrakcja tekstu z tekstu, linków i zdjęć
-  const t1 = Date.now();
-  let tekst;
+  monitoring?.rozpocznijWeryfikacje?.();
   try {
-    tekst = await model1Fn(dane);
-  } catch (err) {
-    if (err instanceof BladWalidacji || err?.publiczny) {
-      err.etap = 'model1';
-      throw err;
+    // 0. Walidacja danych wejściowych
+    const dane = walidujZapytanie(body);
+
+    // 1. MODEL 1 – ekstrakcja tekstu z tekstu, linków i zdjęć
+    const t1 = Date.now();
+    let tekst;
+    try {
+      tekst = await model1Fn(dane);
+    } catch (err) {
+      if (err instanceof BladWalidacji || err?.publiczny) {
+        err.etap = 'model1';
+        throw err;
+      }
+      throw new PipelineError(`Błąd Modelu 1: ${err.message}`, { status: 502, etap: 'model1', kod: 'MODEL1_ERROR', cause: err });
     }
-    throw new PipelineError(`Błąd Modelu 1: ${err.message}`, { status: 502, etap: 'model1', kod: 'MODEL1_ERROR', cause: err });
-  }
-  const czasModel1Ms = Date.now() - t1;
-  etapyUkonczone.push('model1');
+    const czasModel1Ms = Date.now() - t1;
+    etapyUkonczone.push('model1');
 
-  if (typeof tekst !== 'string' || tekst.trim().length === 0) {
-    throw new PipelineError('Nie udało się wyodrębnić żadnego tekstu do analizy.', { status: 400, etap: 'model1', kod: 'EMPTY_EXTRACTED_TEXT' });
-  }
-
-  // 1a. FILTR DANYCH OSOBOWYCH (zawsze, bez modelu): PESEL, dokumenty, konta, karty, telefony,
-  // e-maile, adresy zamieszkania. W tekście i na zdjęciach -> blokada; na stronach z linków -> wycięcie.
-  const ochrona = sprawdzDaneOsobowe(tekst);
-  if (ochrona.zablokuj) return wynikDaneOsobowe(ochrona.tekst, czasModel1Ms, ochrona.wykryte, 'reguly', startCalkowity);
-  tekst = ochrona.tekst;
-  etapyUkonczone.push('filtr_danych_osobowych');
-
-  // 1b. FILTR WSTĘPNY (w testach z podstawionymi modułami pomijany, chyba że podano filtrImpl).
-  // Model ocenia też dane osobowe osób prywatnych, których reguły nie wykryją (np. nazwisko + choroba).
-  const filtrFn = options.filtrImpl !== undefined ? options.filtrImpl : trybTestowy ? null : (t) => filtrujZgloszenie(t, options.filtr);
-  if (filtrFn) {
-    const decyzja = await filtrFn(tekst.replace(/=====\s*\[[^\]]+\]\s*=====/g, ' ').trim());
-    if (decyzja && decyzja.przepuscic === false && decyzja.kategoria === 'dane_osobowe') {
-      return wynikDaneOsobowe(tekst, czasModel1Ms, ['dane osobowe osoby prywatnej'], 'model', startCalkowity);
+    if (typeof tekst !== 'string' || tekst.trim().length === 0) {
+      throw new PipelineError('Nie udało się wyodrębnić żadnego tekstu do analizy.', { status: 400, etap: 'model1', kod: 'EMPTY_EXTRACTED_TEXT' });
     }
-    if (decyzja && decyzja.przepuscic === false) return wynikOdrzucony(tekst, czasModel1Ms, decyzja, startCalkowity);
-    etapyUkonczone.push('filtr_wstepny');
-  }
 
-  // 2. RESEARCH GATHERER – plan, zbieranie materiałów, notatka
-  let research;
-  try {
-    research = await researchFn(tekst);
-  } catch (err) {
-    if (bladNiedostepnosci(err)) {
-      throw new PipelineError('Wyszukiwarka źródeł jest teraz niedostępna – nie da się teraz tego sprawdzić. To nie znaczy, że nie ma na ten temat informacji. Spróbuj ponownie za kilka minut.', { status: 503, etap: 'research', kod: 'SEARCH_UNAVAILABLE', cause: err });
+    // 1a. FILTR DANYCH OSOBOWYCH (zawsze, bez modelu): PESEL, dokumenty, konta, karty, telefony,
+    // e-maile, adresy zamieszkania. W tekście i na zdjęciach -> blokada; na stronach z linków -> wycięcie.
+    const ochrona = sprawdzDaneOsobowe(tekst);
+    if (ochrona.zablokuj) return wynikDaneOsobowe(ochrona.tekst, czasModel1Ms, ochrona.wykryte, 'reguly', startCalkowity);
+    tekst = ochrona.tekst;
+    etapyUkonczone.push('filtr_danych_osobowych');
+
+    // 1b. FILTR WSTĘPNY (w testach z podstawionymi modułami pomijany, chyba że podano filtrImpl).
+    // Model ocenia też dane osobowe osób prywatnych, których reguły nie wykryją (np. nazwisko + choroba).
+    const filtrFn = options.filtrImpl !== undefined ? options.filtrImpl : trybTestowy ? null : (t) => filtrujZgloszenie(t, options.filtr);
+    if (filtrFn) {
+      const decyzja = await filtrFn(tekst.replace(/=====\s*\[[^\]]+\]\s*=====/g, ' ').trim());
+      if (decyzja && decyzja.przepuscic === false && decyzja.kategoria === 'dane_osobowe') {
+        return wynikDaneOsobowe(tekst, czasModel1Ms, ['dane osobowe osoby prywatnej'], 'model', startCalkowity);
+      }
+      if (decyzja && decyzja.przepuscic === false) return wynikOdrzucony(tekst, czasModel1Ms, decyzja, startCalkowity);
+      etapyUkonczone.push('filtr_wstepny');
     }
-    throw new PipelineError(`Błąd Research Gatherera: ${err.message}`, { status: 502, etap: 'research', kod: err?.code || 'RESEARCH_ERROR', cause: err });
-  }
-  etapyUkonczone.push('research');
 
-  // Wyszukiwanie nie działało: nie wydajemy werdyktu "brak dowodów", tylko mówimy, że teraz się nie da
-  if (research.dostepnosc?.awaria) return wynikNiedostepny(tekst, czasModel1Ms, research, startCalkowity, etapyUkonczone);
+    // Monitoring w tle: zapis do SQLite po odrzuceniu danych osobowych i spamu, BEZ czekania na grupowanie AI
+    const wpisMonitoringu = monitoring?.zglosPrompt?.({
+      zewnetrzneId: idZgloszenia,
+      tekst,
+      teraz: new Date(),
+    });
+    zapisanoWMonitoringu = Boolean(wpisMonitoringu);
 
-  // 3. WERYFIKATOR PRAWDY – porównanie zgłoszenia z researchem, werdykty
-  let weryfikacja;
-  try {
-    weryfikacja = await weryfikatorFn(tekst, research);
-  } catch (err) {
-    if (bladNiedostepnosci(err) || /model weryfikujący nie odpowiedział/.test(err?.message)) {
-      throw new PipelineError('Model analizujący jest teraz niedostępny albo przeciążony – nie da się teraz tego sprawdzić. To nie znaczy, że nie ma na ten temat informacji. Spróbuj ponownie za kilka minut.', { status: 503, etap: 'weryfikator', kod: 'MODEL_UNAVAILABLE', cause: err });
+    // 2. RESEARCH GATHERER – plan, zbieranie materiałów, notatka
+    let research;
+    try {
+      research = await researchFn(tekst);
+    } catch (err) {
+      if (zapisanoWMonitoringu) {
+        monitoring?.aktualizujWynik?.(idZgloszenia, {
+          statusWeryfikacji: bladNiedostepnosci(err) ? 'niedostepne' : 'blad',
+        });
+      }
+      if (bladNiedostepnosci(err)) {
+        throw new PipelineError('Wyszukiwarka źródeł jest teraz niedostępna – nie da się teraz tego sprawdzić. To nie znaczy, że nie ma na ten temat informacji. Spróbuj ponownie za kilka minut.', { status: 503, etap: 'research', kod: 'SEARCH_UNAVAILABLE', cause: err });
+      }
+      throw new PipelineError(`Błąd Research Gatherera: ${err.message}`, { status: 502, etap: 'research', kod: err?.code || 'RESEARCH_ERROR', cause: err });
     }
-    throw new PipelineError(`Błąd Weryfikatora Prawdy: ${err.message}`, { status: 502, etap: 'weryfikator', kod: 'WERYFIKATOR_ERROR', cause: err });
+    etapyUkonczone.push('research');
+
+    // Wyszukiwanie nie działało: nie wydajemy werdyktu "brak dowodów", tylko mówimy, że teraz się nie da
+    if (research.dostepnosc?.awaria) {
+      if (zapisanoWMonitoringu) {
+        monitoring?.aktualizujWynik?.(idZgloszenia, {
+          statusWeryfikacji: 'niedostepne',
+          werdyktOgolny: NIEDOSTEPNE,
+          tematResearchu: research?.plan?.temat || null,
+        });
+      }
+      return wynikNiedostepny(tekst, czasModel1Ms, research, startCalkowity, etapyUkonczone);
+    }
+
+    // 3. WERYFIKATOR PRAWDY – porównanie zgłoszenia z researchem, werdykty
+    let weryfikacja;
+    try {
+      weryfikacja = await weryfikatorFn(tekst, research);
+    } catch (err) {
+      if (zapisanoWMonitoringu) {
+        monitoring?.aktualizujWynik?.(idZgloszenia, {
+          statusWeryfikacji: 'blad',
+          tematResearchu: research?.plan?.temat || null,
+        });
+      }
+      if (bladNiedostepnosci(err) || /model weryfikujący nie odpowiedział/.test(err?.message)) {
+        throw new PipelineError('Model analizujący jest teraz niedostępny albo przeciążony – nie da się teraz tego sprawdzić. To nie znaczy, że nie ma na ten temat informacji. Spróbuj ponownie za kilka minut.', { status: 503, etap: 'weryfikator', kod: 'MODEL_UNAVAILABLE', cause: err });
+      }
+      throw new PipelineError(`Błąd Weryfikatora Prawdy: ${err.message}`, { status: 502, etap: 'weryfikator', kod: 'WERYFIKATOR_ERROR', cause: err });
+    }
+    if (research.dostepnosc && research.dostepnosc.baza_fact_checkerow === false) weryfikacja = oznaczNiedostepne(weryfikacja);
+    etapyUkonczone.push('weryfikator');
+
+    if (zapisanoWMonitoringu) {
+      monitoring?.aktualizujWynik?.(idZgloszenia, {
+        statusWeryfikacji: 'zakonczona',
+        werdyktOgolny: weryfikacja.werdykt_ogolny,
+        tematResearchu: research?.plan?.temat || null,
+      });
+    }
+
+    // Pętla informacji: nierozstrzygnięte sprawy trafiają do rejestru (z deduplikacją)
+    const rejestr = options.rejestrImpl !== undefined ? options.rejestrImpl : trybTestowy ? null : zarejestrujNierozstrzygniete;
+    const nierozstrzygniete = rejestr ? rejestr(weryfikacja.twierdzenia || []) : null;
+
+    return {
+      status: research.status || 'completed',
+      werdykt_ogolny: weryfikacja.werdykt_ogolny,
+      tekst,
+      model1: { tekst, czas_ms: czasModel1Ms },
+      research: {
+        plan: research.plan,
+        notatka: research.notatka,
+        materialy: research.materialy || [],
+        czas_ms: research.czas_ms,
+        dostepnosc: research.dostepnosc,
+      },
+      demagog: weryfikacja, // nazwa pola zachowana dla frontendu
+      metadane: {
+        czas_calkowity_ms: Date.now() - startCalkowity,
+        etapy_ukonczone: etapyUkonczone,
+        liczba_twierdzen: (weryfikacja.twierdzenia || []).length,
+        liczba_dowodow: (research.materialy || []).length,
+        ostrzezenia: research.ostrzezenia || [],
+        security_flags: research.security_flags || [],
+        nierozstrzygniete,
+      },
+    };
+  } finally {
+    monitoring?.zakonczWeryfikacje?.();
   }
-  if (research.dostepnosc && research.dostepnosc.baza_fact_checkerow === false) weryfikacja = oznaczNiedostepne(weryfikacja);
-  etapyUkonczone.push('weryfikator');
-
-  // Pętla informacji: nierozstrzygnięte sprawy trafiają do rejestru (z deduplikacją)
-  const rejestr = options.rejestrImpl !== undefined ? options.rejestrImpl : trybTestowy ? null : zarejestrujNierozstrzygniete;
-  const nierozstrzygniete = rejestr ? rejestr(weryfikacja.twierdzenia || []) : null;
-
-  return {
-    status: research.status || 'completed',
-    werdykt_ogolny: weryfikacja.werdykt_ogolny,
-    tekst,
-    model1: { tekst, czas_ms: czasModel1Ms },
-    research: {
-      plan: research.plan,
-      notatka: research.notatka,
-      materialy: research.materialy || [],
-      czas_ms: research.czas_ms,
-      dostepnosc: research.dostepnosc,
-    },
-    demagog: weryfikacja, // nazwa pola zachowana dla frontendu
-    metadane: {
-      czas_calkowity_ms: Date.now() - startCalkowity,
-      etapy_ukonczone: etapyUkonczone,
-      liczba_twierdzen: (weryfikacja.twierdzenia || []).length,
-      liczba_dowodow: (research.materialy || []).length,
-      ostrzezenia: research.ostrzezenia || [],
-      security_flags: research.security_flags || [],
-      nierozstrzygniete,
-    },
-  };
 }
 
 module.exports = { PipelineError, uruchomPipeline };

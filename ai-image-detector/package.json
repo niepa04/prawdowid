@@ -1,0 +1,16 @@
+{
+  "name": "ai-image-detector",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Osobny serwis HTTP wykrywajacy obrazy AI przez Smaug-AI-Image-Detector-GGUF (llama-server przez Tailscale)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test detector.test.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "sharp": "^0.34.1"
+  }
+}

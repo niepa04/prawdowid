@@ -4,13 +4,16 @@ import Sprawdzanie from './komponenty/Sprawdzanie.jsx';
 import Wynik from './komponenty/Wynik.jsx';
 import Ikona from './komponenty/Ikona.jsx';
 import ZasadyModal from './komponenty/ZasadyModal.jsx';
+import RadarAlertow from './komponenty/RadarAlertow.jsx';
 import logoZnak from './assets/logo-znak.png';
 import { weryfikuj } from './api.js';
 import { werdykt } from './werdykty.js';
 import { wczytajHistorie, zapiszWHistorii, usunZHistorii, wyczyscHistorie } from './historia.js';
 
 // Trzy etapy strony: wpisywanie -> sprawdzanie -> wynik (albo błąd).
+// Osobny byt /alarmy renderuje panel wczesnego ostrzegania poza stroną główną.
 export default function App() {
+  const czyAlarmy = typeof window !== 'undefined' && /^\/alarmy\/?$/i.test(window.location.pathname);
   const [etap, setEtap] = useState('wpisywanie');
   const [robocze, setRobocze] = useState({ tekst: '', zdjecia: [] });
   const [kluczPola, setKluczPola] = useState(0);
@@ -95,6 +98,36 @@ export default function App() {
     requestAnimationFrame(() => {
       document.getElementById('jak-to-dziala')?.scrollIntoView({ behavior: 'smooth' });
     });
+  }
+
+  if (czyAlarmy) {
+    return (
+      <div className={`strona ${duzyTekst ? 'duzy-tekst' : ''}`}>
+        <header className="gora">
+          <div className="szerokosc gora__wnetrze">
+            <a className="znak" href="/" style={{ textDecoration: 'none' }}>
+              <img src={logoZnak} alt="" className="znak__logo" />
+              <span className="znak__nazwa">Koma · Alarmy</span>
+            </a>
+            <nav className="gora__menu">
+              <a href="/">Weryfikator</a>
+              <button
+                type="button"
+                className={`przycisk-tekstu ${duzyTekst ? 'przycisk-tekstu--aktywny' : ''}`}
+                onClick={przelaczRozmiarTekstu}
+                aria-pressed={duzyTekst}
+                title="Powiększ rozmiar tekstu"
+              >
+                A+
+              </button>
+            </nav>
+          </div>
+        </header>
+        <main className="szerokosc tresc">
+          <RadarAlertow />
+        </main>
+      </div>
+    );
   }
 
   return (

@@ -63,9 +63,10 @@ export default function ZasadyModal({ otwarte, onZamknij, liczbaHistorii, onWycz
           <section>
             <h3>Bezpieczeństwo i prywatność sesji</h3>
             <p>
-              Zgłoszenia są izolowane od instrukcji systemowych (ochrona przed prompt injection).
-              Historia ostatnich sprawdzeń zapisywana jest wyłącznie lokalnie w Twojej przeglądarce
-              i nie jest publicznie udostępniana.
+              Zgłoszenia są izolowane od instrukcji systemowych (ochrona przed prompt injection),
+              a dane osobowe są blokowane przed dalszą analizą. Zanonimizowane pytania bez danych
+              osobowych zasilają w tle radar trendów, aby wykrywać masowe fale dezinformacji
+              i niepokoju społecznego bez spowalniania odpowiedzi.
             </p>
             {liczbaHistorii > 0 && (
               <button
