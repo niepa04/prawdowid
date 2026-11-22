@@ -2,6 +2,7 @@
 
 | Dokument | O czym |
 |---|---|
+| [Opis projektu](opis_projektu.md) | Kanały i moduły, przepływ danych, źródła i licencje, wyniki testów, koszty, ryzyka |
 | [Architektura](architektura.md) | Jak działa sprawdzanie krok po kroku, moduły i struktura folderów |
 | [Konfiguracja](konfiguracja.md) | Folder `config/`: modele AI, prompty, źródła, limity; zmienne `.env` |
 | [Werdykty i źródła](werdykty_i_zrodla.md) | Jakie werdykty wydaje Koma, na jakiej podstawie i skąd bierze dowody |
