@@ -291,6 +291,11 @@ a:focus-visible, button:focus-visible, textarea:focus-visible {
 :root { --brak: #eef1f5; --brak-tekst: #3f4a5a; }
 .werdykt--brak { background: var(--brak); color: var(--brak-tekst); }
 .plakietka--brak { background: var(--brak); color: var(--brak-tekst); }
+/* Awaria wyszukiwania: inny kolor niż "brak dowodów", żeby nie mylić jednego z drugim */
+:root { --niedostepne: #fff4e0; --niedostepne-tekst: #7a4a00; }
+.werdykt--niedostepne { background: var(--niedostepne); color: var(--niedostepne-tekst); }
+.plakietka--niedostepne { background: var(--niedostepne); color: var(--niedostepne-tekst); }
+.karta-watku--niedostepne { border-left-color: #e0a030; }
 .skala { grid-template-columns: repeat(3, 1fr); }
 
 .twierdzenie-glowne { margin-top: 20px; padding: 12px 16px; border-left: 4px solid var(--niebieski); background: var(--niebieski-bardzo-jasny); }

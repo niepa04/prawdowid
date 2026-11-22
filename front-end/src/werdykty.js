@@ -22,6 +22,11 @@ export const WERDYKTY = {
     opis: 'Nie znaleźliśmy dość materiałów, żeby to rozstrzygnąć. To nie znaczy, że informacja jest fałszywa.',
     skala: null,
   },
+  'Nie można teraz sprawdzić': {
+    klasa: 'niedostepne',
+    opis: 'Wyszukiwarka źródeł jest teraz niedostępna. To nie znaczy, że nie ma na ten temat informacji – spróbuj ponownie za kilka minut.',
+    skala: null,
+  },
   'Nie podlega weryfikacji': {
     klasa: 'brak',
     opis: 'To opinia, ocena albo pytanie, a nie fakt, który da się sprawdzić.',

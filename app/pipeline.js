@@ -58,6 +58,63 @@ function wynikOdrzucony(tekst, czasModel1Ms, decyzja, startCalkowity) {
   };
 }
 
+const NIEDOSTEPNE = 'Nie można teraz sprawdzić';
+const KOMUNIKAT_NIEDOSTEPNE =
+  'Wyszukiwarka źródeł (baza fact-checkerów i strony oficjalne) jest teraz niedostępna, więc nie mogliśmy tego sprawdzić. ' +
+  'To NIE znaczy, że nie ma na ten temat artykułów ani dowodów. Spróbuj ponownie za kilka minut.';
+
+// Błąd sieci / przekroczony czas przy serwerze modeli - "nie da się teraz sprawdzić", a nie błąd zgłoszenia
+function bladNiedostepnosci(err) {
+  const kod = err?.cause?.code || err?.code || '';
+  return err?.name === 'TimeoutError' || err?.name === 'AbortError' ||
+    /fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EHOSTUNREACH|ECONNRESET|Ollama HTTP 5\d\d/i.test(`${err?.message} ${kod}`);
+}
+
+// Odpowiedź, gdy wyszukiwanie nie działało - ten sam kształt co pełny wynik
+function wynikNiedostepny(tekst, czasModel1Ms, research, startCalkowity, etapyUkonczone) {
+  return {
+    status: 'unavailable',
+    werdykt_ogolny: NIEDOSTEPNE,
+    tekst,
+    model1: { tekst, czas_ms: czasModel1Ms },
+    research: { plan: research.plan, notatka: research.notatka, materialy: [], czas_ms: research.czas_ms, dostepnosc: research.dostepnosc },
+    demagog: { werdykt_ogolny: NIEDOSTEPNE, glowna_odpowiedz: KOMUNIKAT_NIEDOSTEPNE, glowne_zrodla: [], twierdzenia: [], czas_ms: 0 },
+    metadane: {
+      czas_calkowity_ms: Date.now() - startCalkowity,
+      etapy_ukonczone: etapyUkonczone,
+      liczba_twierdzen: 0,
+      liczba_dowodow: 0,
+      ostrzezenia: research.ostrzezenia || [],
+      security_flags: research.security_flags || [],
+      niedostepne: true,
+    },
+  };
+}
+
+// Baza fact-checkerów nie odpowiadała: "brak dowodów" jest wtedy niewiarygodny (najważniejsze
+// źródło ocen nie zostało przeszukane), więc mówimy wprost, że teraz nie da się tego sprawdzić.
+function oznaczNiedostepne(weryfikacja) {
+  let zmienione = 0;
+  const twierdzenia = (weryfikacja.twierdzenia || []).map((t) => {
+    if (t.werdykt !== 'Brak wystarczających dowodów') return t;
+    zmienione++;
+    return {
+      ...t,
+      werdykt: NIEDOSTEPNE,
+      uzasadnienie: 'Baza ocen fact-checkerów była w tej chwili niedostępna, a w pozostałych źródłach nic nie znaleźliśmy. Nie wiemy więc, czy są na ten temat artykuły – spróbuj ponownie za kilka minut.',
+      metoda: 'niedostepne_zrodla',
+    };
+  });
+  if (!zmienione) return weryfikacja;
+  const glowneNiedostepne = weryfikacja.werdykt_ogolny === 'Brak wystarczających dowodów';
+  return {
+    ...weryfikacja,
+    twierdzenia,
+    werdykt_ogolny: glowneNiedostepne ? NIEDOSTEPNE : weryfikacja.werdykt_ogolny,
+    glowna_odpowiedz: glowneNiedostepne ? KOMUNIKAT_NIEDOSTEPNE : weryfikacja.glowna_odpowiedz,
+  };
+}
+
 /**
  * @param {object} body - Surowe body zapytania HTTP { tekst?, linki?, zdjecia?, film? }
  * @param {object} [options] - podstawienia do testów: model1Impl, filtrImpl, researchImpl, weryfikatorImpl, rejestrImpl
@@ -107,17 +164,27 @@ async function uruchomPipeline(body, options = {}) {
   try {
     research = await researchFn(tekst);
   } catch (err) {
+    if (bladNiedostepnosci(err)) {
+      throw new PipelineError('Wyszukiwarka źródeł jest teraz niedostępna – nie da się teraz tego sprawdzić. To nie znaczy, że nie ma na ten temat informacji. Spróbuj ponownie za kilka minut.', { status: 503, etap: 'research', kod: 'SEARCH_UNAVAILABLE', cause: err });
+    }
     throw new PipelineError(`Błąd Research Gatherera: ${err.message}`, { status: 502, etap: 'research', kod: err?.code || 'RESEARCH_ERROR', cause: err });
   }
   etapyUkonczone.push('research');
+
+  // Wyszukiwanie nie działało: nie wydajemy werdyktu "brak dowodów", tylko mówimy, że teraz się nie da
+  if (research.dostepnosc?.awaria) return wynikNiedostepny(tekst, czasModel1Ms, research, startCalkowity, etapyUkonczone);
 
   // 3. WERYFIKATOR PRAWDY – porównanie zgłoszenia z researchem, werdykty
   let weryfikacja;
   try {
     weryfikacja = await weryfikatorFn(tekst, research);
   } catch (err) {
+    if (bladNiedostepnosci(err) || /model weryfikujący nie odpowiedział/.test(err?.message)) {
+      throw new PipelineError('Model analizujący jest teraz niedostępny albo przeciążony – nie da się teraz tego sprawdzić. To nie znaczy, że nie ma na ten temat informacji. Spróbuj ponownie za kilka minut.', { status: 503, etap: 'weryfikator', kod: 'MODEL_UNAVAILABLE', cause: err });
+    }
     throw new PipelineError(`Błąd Weryfikatora Prawdy: ${err.message}`, { status: 502, etap: 'weryfikator', kod: 'WERYFIKATOR_ERROR', cause: err });
   }
+  if (research.dostepnosc && research.dostepnosc.baza_fact_checkerow === false) weryfikacja = oznaczNiedostepne(weryfikacja);
   etapyUkonczone.push('weryfikator');
 
   // Pętla informacji: nierozstrzygnięte sprawy trafiają do rejestru (z deduplikacją)
@@ -134,6 +201,7 @@ async function uruchomPipeline(body, options = {}) {
       notatka: research.notatka,
       materialy: research.materialy || [],
       czas_ms: research.czas_ms,
+      dostepnosc: research.dostepnosc,
     },
     demagog: weryfikacja, // nazwa pola zachowana dla frontendu
     metadane: {
