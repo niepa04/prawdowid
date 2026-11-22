@@ -35,6 +35,23 @@ function Zrodlo({ zrodlo }) {
   );
 }
 
+// Link ze zgłoszenia prowadzi do domeny z listy zaufanych źródeł - informujemy o tym,
+// ale werdykt i tak opiera się na potwierdzeniach z INNYCH stron
+function ZrodloZgloszenia({ zrodlo }) {
+  if (!zrodlo?.zaufane?.length) return null;
+  return (
+    <div className="zrodlo-zgloszenia" role="note">
+      <div className="zrodlo-zgloszenia__ikona" aria-hidden="true">
+        <Ikona nazwa="check" rozmiar={18} />
+      </div>
+      <div>
+        <div className="zrodlo-zgloszenia__tytul">Zweryfikowane źródło</div>
+        <p className="zrodlo-zgloszenia__opis">{zrodlo.komunikat}</p>
+      </div>
+    </div>
+  );
+}
+
 function Plakietka({ nazwa }) {
   return <span className={`plakietka plakietka--${werdykt(nazwa).klasa}`}>{nazwa}</span>;
 }
@@ -364,6 +381,7 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
 
   return (
     <div className="wynik" ref={kontenerRef} tabIndex={-1}>
+      <ZrodloZgloszenia zrodlo={wynik.zrodlo_zgloszenia} />
       {wieleWatkow ? (
         <>
           <Podsumowanie watki={watki} nazwaOgolna={nazwa} />

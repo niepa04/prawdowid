@@ -337,6 +337,14 @@ a:focus-visible, button:focus-visible, textarea:focus-visible {
 .dol__linki a:hover { color: var(--niebieski); text-decoration: underline; }
 .dol__info { margin: 16px 0 0; font-size: 13px; color: var(--tekst-slaby); }
 
+/* Bardzo wąskie telefony: menu w nagłówku musi zmieścić się obok logo */
+@media (max-width: 400px) {
+  .gora__menu { gap: 8px !important; font-size: 12.5px !important; text-align: center; }
+  .gora__menu .przycisk-tekstu { padding: 3px 6px; font-size: 12px; }
+  .znak__nazwa { font-size: 19px; }
+  .znak { gap: 6px; }
+}
+
 @media (max-width: 700px) {
   .szerokosc { padding: 0 16px; }
   .gora__wnetrze { height: 64px; }
@@ -725,4 +733,70 @@ a.cytat__zrodlo:hover { color: var(--niebieski); text-decoration: underline; }
 }
 @media (max-width: 520px) {
   .radar-kpi { grid-template-columns: 1fr; }
+}
+
+/* Link ze zgłoszenia prowadzi do zaufanego źródła */
+.zrodlo-zgloszenia {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 0 0 16px; padding: 12px 16px;
+  border: 1px solid var(--prawda-mocny); border-radius: var(--promien);
+  background: var(--prawda); color: var(--prawda-tekst);
+}
+.zrodlo-zgloszenia__ikona {
+  flex: none; width: 28px; height: 28px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--prawda-mocny); color: #fff;
+}
+.zrodlo-zgloszenia__tytul { font-weight: 800; font-size: 15px; }
+.zrodlo-zgloszenia__opis { margin: 2px 0 0; font-size: 15px; line-height: 1.5; }
+
+/* Strona "Zaufane źródła" (#zrodla) */
+.zrodla-strona { max-width: 860px; margin: 0 auto; }
+.zrodla-strona__wroc {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0; margin-bottom: 18px;
+  border: 0; background: none; color: var(--niebieski); font-weight: 700;
+}
+.zrodla-strona__wroc svg { transform: rotate(90deg); }
+.zrodla-strona__wroc:hover { text-decoration: underline; }
+.zrodla-strona__tytul { margin: 0; font-size: clamp(36px, 6vw, 52px); font-weight: 800; color: var(--niebieski); letter-spacing: -0.02em; }
+.zrodla-strona__wstep { margin: 12px 0 0; font-size: 18px; line-height: 1.6; color: var(--tekst-drugi); }
+
+.zrodla-liczby { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 28px 0 8px; }
+.zrodla-liczby__kafel { padding: 16px 18px; border-radius: 12px; background: var(--niebieski-bardzo-jasny); border: 1px solid var(--niebieski-jasny); }
+.zrodla-liczby__kafel strong { display: block; font-size: 34px; font-weight: 800; color: var(--niebieski); line-height: 1.1; }
+.zrodla-liczby__kafel span { font-size: 14px; color: var(--tekst-drugi); }
+
+.zrodla-sekcja { margin-top: 36px; }
+.zrodla-sekcja h2 { margin: 0 0 12px; font-size: 24px; font-weight: 800; color: var(--tekst); }
+.zrodla-sekcja p { line-height: 1.6; color: var(--tekst-drugi); }
+.zrodla-sekcja__gora { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.zrodla-sekcja__gora h2 { margin: 0; }
+.zrodla-sekcja--api { padding: 20px 22px; border-radius: 12px; border: 1px solid var(--ramka); background: var(--tlo-drugie); }
+.zrodla-szukaj { min-width: 260px; padding: 9px 12px; font: inherit; font-size: 15px; border: 1px solid var(--ramka-mocna); border-radius: var(--promien); }
+.zrodla-szukaj:focus { outline: 0; border-color: var(--niebieski); box-shadow: 0 0 0 3px var(--niebieski-jasny); }
+.zrodla-pusto { color: var(--tekst-slaby); }
+
+.zrodla-grupa { margin-top: 18px; }
+.zrodla-grupa h3 { margin: 0 0 8px; font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tekst-slaby); }
+.zrodla-lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--ramka); border-radius: var(--promien); background: var(--tlo); }
+.zrodla-lista__el { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; }
+.zrodla-lista__el + .zrodla-lista__el { border-top: 1px solid var(--ramka); }
+.zrodla-lista__tresc { display: flex; flex-direction: column; min-width: 0; }
+.zrodla-lista__nazwa { color: var(--niebieski); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.zrodla-lista__domena { font-size: 13px; color: var(--tekst-slaby); }
+.zrodla-lista__rola { flex: none; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--niebieski-jasny); color: var(--niebieski-tekst); }
+
+.zrodla-punkty { margin: 8px 0 0; padding-left: 20px; color: var(--tekst-drugi); line-height: 1.6; }
+.zrodla-wymagania { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.zrodla-wymagania li { display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--ramka); border-radius: var(--promien); background: var(--tlo); }
+.zrodla-wymagania__nr {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--niebieski); color: #fff; font-weight: 800; font-size: 14px;
+}
+.zrodla-wymagania strong { color: var(--tekst); }
+.zrodla-wymagania p { margin: 2px 0 0; font-size: 15px; }
+@media (max-width: 640px) {
+  .zrodla-liczby { grid-template-columns: 1fr; }
+  .zrodla-szukaj { min-width: 0; width: 100%; }
 }

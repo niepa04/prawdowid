@@ -12,14 +12,27 @@
 const crypto = require('crypto');
 const { walidujZapytanie, BladWalidacji } = require('./wspolne/zabezpieczenia');
 const filtrTekstu = require('./ekstrakcja/ekstrakcjaTresci');
-const { zbierzResearch } = require('./research/researchGatherer');
+const { zbierzResearch, zaplanuj } = require('./research/researchGatherer');
 const { weryfikujPrawde } = require('./weryfikator/weryfikatorPrawdy');
 const { filtrujZgloszenie } = require('./filtr_wstepny/filtrWstepny');
 const { zarejestrujNierozstrzygniete } = require('./wspolne/rejestrNierozstrzygnietych');
 const { sprawdzDaneOsobowe } = require('./ochrona_danych/daneOsobowe');
 const { pobierzDomyslnyMonitoring } = require('./monitoring_promptow');
+const { linkiZgloszenia, zaufaneLinki } = require('./wspolne/zaufaneDomeny');
 
 const ZABLOKOWANE_DANE = 'Zablokowano: dane osobowe';
+
+// Informacja dla użytkownika, gdy link prowadzi do zaufanego źródła (null, gdy żaden nie prowadzi)
+function opisZrodlaZgloszenia(zaufane) {
+  if (!zaufane.length) return null;
+  const nazwy = [...new Set(zaufane.map((z) => z.nazwa))].join(', ');
+  return {
+    zaufane,
+    komunikat:
+      `Link pochodzi ze zweryfikowanego źródła: ${nazwy}. ` +
+      'Mimo to szukaliśmy potwierdzeń na innych stronach – poniżej wyniki z innych źródeł.',
+  };
+}
 
 // Zgłoszenie z danymi osobowymi - nie idzie dalej (do modeli researchu ani wyszukiwarek).
 // wykryte: rodzaje danych (np. "numer PESEL"), bez samych wartości.
@@ -161,7 +174,7 @@ async function uruchomPipeline(body, options = {}) {
   const trybTestowy = Boolean(options.researchImpl || options.weryfikatorImpl);
 
   const model1Fn = options.model1Impl || ((dane) => filtrTekstu.konwertuj(dane));
-  const researchFn = options.researchImpl || ((tekst) => zbierzResearch(tekst, options.research || {}));
+  const researchFn = options.researchImpl || ((tekst, dodatkowe) => zbierzResearch(tekst, { ...(options.research || {}), ...dodatkowe }));
   const weryfikatorFn = options.weryfikatorImpl || ((tekst, research) => weryfikujPrawde(tekst, research, options.weryfikator || {}));
   const monitoring = options.monitoringImpl !== undefined ? options.monitoringImpl : trybTestowy ? null : pobierzDomyslnyMonitoring();
   const idZgloszenia = crypto.randomUUID();
@@ -171,6 +184,12 @@ async function uruchomPipeline(body, options = {}) {
   try {
     // 0. Walidacja danych wejściowych
     const dane = walidujZapytanie(body);
+
+    // Linki ze zgłoszenia: czy prowadzą do domen, na których Koma sama weryfikuje informacje.
+    // Zaufane źródło nie kończy sprawdzania - informujemy o nim, ale potwierdzeń szukamy na INNYCH
+    // stronach (strony z linków są wykluczane z materiałów, żeby nie potwierdzały same siebie).
+    const linkiUzytkownika = linkiZgloszenia(dane);
+    const zrodloZgloszenia = opisZrodlaZgloszenia(zaufaneLinki(linkiUzytkownika));
 
     // 1. MODEL 1 – ekstrakcja tekstu z tekstu, linków i zdjęć
     const t1 = Date.now();
@@ -201,6 +220,11 @@ async function uruchomPipeline(body, options = {}) {
     // 1b. FILTR WSTĘPNY (w testach z podstawionymi modułami pomijany, chyba że podano filtrImpl).
     // Model ocenia też dane osobowe osób prywatnych, których reguły nie wykryją (np. nazwisko + choroba).
     const filtrFn = options.filtrImpl !== undefined ? options.filtrImpl : trybTestowy ? null : (t) => filtrujZgloszenie(t, options.filtr);
+    // Szybciej: plan researchu (nasz własny model, bez zapytań na zewnątrz) liczy się RÓWNOLEGLE
+    // z filtrem wstępnym. Wyszukiwanie w zewnętrznych źródłach startuje dopiero po przejściu filtra,
+    // więc dane osoby prywatnej wykryte przez filtr nigdy nie wychodzą poza nasz serwer.
+    const planWczesny = options.researchImpl ? null : zaplanuj(tekst, options.research || {});
+    if (planWczesny) planWczesny.catch(() => {});
     if (filtrFn) {
       const decyzja = await filtrFn(tekst.replace(/=====\s*\[[^\]]+\]\s*=====/g, ' ').trim());
       if (decyzja && decyzja.przepuscic === false && decyzja.kategoria === 'dane_osobowe') {
@@ -221,7 +245,7 @@ async function uruchomPipeline(body, options = {}) {
     // 2. RESEARCH GATHERER – plan, zbieranie materiałów, notatka
     let research;
     try {
-      research = await researchFn(tekst);
+      research = await researchFn(tekst, { wykluczUrl: linkiUzytkownika, planGotowy: planWczesny ? await planWczesny : undefined });
     } catch (err) {
       if (zapisanoWMonitoringu) {
         monitoring?.aktualizujWynik?.(idZgloszenia, {
@@ -244,7 +268,7 @@ async function uruchomPipeline(body, options = {}) {
           tematResearchu: research?.plan?.temat || null,
         });
       }
-      return wynikNiedostepny(tekst, czasModel1Ms, research, startCalkowity, etapyUkonczone);
+      return { ...wynikNiedostepny(tekst, czasModel1Ms, research, startCalkowity, etapyUkonczone), zrodlo_zgloszenia: zrodloZgloszenia };
     }
 
     // 3. WERYFIKATOR PRAWDY – porównanie zgłoszenia z researchem, werdykty
@@ -289,8 +313,12 @@ async function uruchomPipeline(body, options = {}) {
         materialy: research.materialy || [],
         czas_ms: research.czas_ms,
         dostepnosc: research.dostepnosc,
+        czasy: research.czasy,
+        pominiete_strony_zgloszenia: research.pominiete_strony_zgloszenia || 0,
       },
       demagog: weryfikacja, // nazwa pola zachowana dla frontendu
+      // Link ze zgłoszenia prowadzi do zaufanego źródła (null, gdy nie): komunikat + lista źródeł
+      zrodlo_zgloszenia: zrodloZgloszenia,
       metadane: {
         czas_calkowity_ms: Date.now() - startCalkowity,
         etapy_ukonczone: etapyUkonczone,
