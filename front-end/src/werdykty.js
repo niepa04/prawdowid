@@ -39,3 +39,54 @@ export const SKALA = ['Fałszywe', 'Wprowadzające w błąd', 'Potwierdzone'];
 export function werdykt(nazwa) {
   return WERDYKTY[nazwa] || WERDYKTY['Brak wystarczających dowodów'];
 }
+
+export function silaPodstawy(poziom, metoda) {
+  if (poziom === 'wysoka') {
+    return {
+      klasa: 'wysoka',
+      etykieta: 'Podstawa odpowiedzi: wysoka',
+      opis: metoda === 'ocena_fact_checkera' ? 'Oparte na ocenie niezależnych fact-checkerów.' : 'Jednoznaczne potwierdzenie w źródłach.',
+    };
+  }
+  if (poziom === 'umiarkowana') {
+    return {
+      klasa: 'umiarkowana',
+      etykieta: 'Podstawa odpowiedzi: umiarkowana',
+      opis: 'Ustalono na podstawie zebranych materiałów źródłowych.',
+    };
+  }
+  if (poziom === 'niska') {
+    return {
+      klasa: 'niska',
+      etykieta: 'Podstawa odpowiedzi: niska',
+      opis: 'Niewystarczające lub niejednoznaczne materiały.',
+    };
+  }
+  return null;
+}
+
+export function formatujDate(wartosc) {
+  if (!wartosc) return null;
+  const d = new Date(wartosc);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+export function czyArchiwalna(wartosc, progDni = 365) {
+  if (!wartosc) return false;
+  const d = new Date(wartosc);
+  if (Number.isNaN(d.getTime())) return false;
+  return Date.now() - d.getTime() > progDni * 24 * 60 * 60 * 1000;
+}
+
+const OPISY_FLAG = {
+  prompt_injection_detected: 'W treści jednego ze źródeł wykryto próbę manipulacji instrukcjami — została zignorowana.',
+  input_command_only: 'Zgłoszenie zawierało wyłącznie polecenie dla systemu zamiast informacji do sprawdzenia.',
+  redirect_blocked: 'Zablokowano przekierowanie poza zatwierdzoną listę źródeł.',
+  search_result_untrusted_host: 'Pominięto niezweryfikowany adres spoza zatwierdzonej listy źródeł.',
+};
+
+export function opisyBezpieczenstwa(flagi) {
+  if (!Array.isArray(flagi) || !flagi.length) return [];
+  return [...new Set(flagi.map((f) => OPISY_FLAG[f?.type] || 'Wykryto i zablokowano potencjalną próbę manipulacji treścią.'))];
+}

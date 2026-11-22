@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import Ikona from './Ikona.jsx';
 import PodgladZgloszenia from './PodgladZgloszenia.jsx';
-import { werdykt, SKALA } from '../werdykty.js';
+import { werdykt, SKALA, silaPodstawy, formatujDate, czyArchiwalna, opisyBezpieczenstwa } from '../werdykty.js';
 import { bezpiecznyUrl } from '../api.js';
 import { odmiana } from '../odmiana.js';
 
 function Zrodlo({ zrodlo }) {
   const url = bezpiecznyUrl(zrodlo.url);
   const tytul = zrodlo.title || zrodlo.publisher || zrodlo.url;
+  const data = formatujDate(zrodlo.published_at);
+  const archiwalne = czyArchiwalna(zrodlo.published_at);
+  const meta = [zrodlo.title ? zrodlo.publisher : null, data].filter(Boolean).join(' · ');
+
   return (
     <li className="zrodlo">
       <div className="zrodlo__tresc">
@@ -19,7 +23,12 @@ function Zrodlo({ zrodlo }) {
         ) : (
           <span className="zrodlo__tytul">{tytul}</span>
         )}
-        {zrodlo.publisher && zrodlo.title && <span className="zrodlo__wydawca">{zrodlo.publisher}</span>}
+        {(meta || archiwalne) && (
+          <span className="zrodlo__wydawca">
+            {meta}
+            {archiwalne && <span className="zrodlo__archiwum">Starszy materiał</span>}
+          </span>
+        )}
       </div>
     </li>
   );
@@ -27,6 +36,62 @@ function Zrodlo({ zrodlo }) {
 
 function Plakietka({ nazwa }) {
   return <span className={`plakietka plakietka--${werdykt(nazwa).klasa}`}>{nazwa}</span>;
+}
+
+function SilaDowodow({ poziom, metoda, zwarta = false }) {
+  const info = silaPodstawy(poziom, metoda);
+  if (!info) return null;
+  return (
+    <div className={`sila sila--${info.klasa} ${zwarta ? 'sila--zwarta' : ''}`}>
+      <strong>{info.etykieta}</strong>
+      {!zwarta && <span>{info.opis}</span>}
+    </div>
+  );
+}
+
+function DowodyCytaty({ dowody }) {
+  const istotne = [];
+  const widziane = new Set();
+  for (const d of dowody || []) {
+    if (!d?.na_temat || !d.dlaczego) continue;
+    if (d.stanowisko !== 'potwierdza' && d.stanowisko !== 'zaprzecza') continue;
+    const klucz = `${d.stanowisko}|${d.dlaczego.trim()}`;
+    if (widziane.has(klucz)) continue;
+    widziane.add(klucz);
+    istotne.push(d);
+    if (istotne.length >= 4) break;
+  }
+  if (!istotne.length) return null;
+
+  return (
+    <div className="cytaty">
+      <div className="cytaty__naglowek">Fragmenty ze źródeł</div>
+      <ul className="cytaty__lista">
+        {istotne.map((d, i) => {
+          const url = bezpiecznyUrl(d.url);
+          const etykieta = d.stanowisko === 'potwierdza' ? 'Potwierdza' : 'Zaprzecza';
+          const klasa = d.stanowisko === 'potwierdza' ? 'prawda' : 'falsz';
+          return (
+            <li key={`${d.nr || i}-${i}`} className="cytat">
+              <div className="cytat__gora">
+                <span className={`plakietka plakietka--${klasa}`}>{etykieta}</span>
+                {d.title && (
+                  url ? (
+                    <a href={url} target="_blank" rel="noreferrer noopener" className="cytat__zrodlo">
+                      {d.title}
+                    </a>
+                  ) : (
+                    <span className="cytat__zrodlo">{d.title}</span>
+                  )
+                )}
+              </div>
+              <blockquote className="cytat__tresc">„{d.dlaczego}”</blockquote>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 // Dzieli twierdzenia na wątki: wątek = twierdzenie główne (bez related_to w Modelu 2)
@@ -73,13 +138,19 @@ function KartaWatku({ watek, numer }) {
         <span className="karta-watku__numer">{numer}</span>
         <p className="karta-watku__twierdzenie">„{t.claim}”</p>
       </div>
-      <div className={`karta-watku__werdykt werdykt--${w.klasa}`}>{t.werdykt}</div>
+      <div className="karta-watku__werdykt-wiersz">
+        <span className={`karta-watku__werdykt werdykt--${w.klasa}`}>{t.werdykt}</span>
+        <SilaDowodow poziom={t.sila_dowodow} metoda={t.metoda} zwarta />
+      </div>
       {t.uzasadnienie && <p className="karta-watku__uzasadnienie">{t.uzasadnienie}</p>}
       {zrodla.length > 0 && (
         <ul className="zrodla zrodla--male">
           {zrodla.map((z) => <Zrodlo key={z.url || z.title} zrodlo={z} />)}
         </ul>
       )}
+      <div className="karta-watku__cytaty">
+        <DowodyCytaty dowody={t.ocena_dowodow} />
+      </div>
       <Szczegoly szczegoly={watek.szczegoly} />
     </li>
   );
@@ -104,6 +175,30 @@ function Podsumowanie({ watki, nazwaOgolna }) {
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+function PetlaInformacji({ wynik }) {
+  const rejestr = wynik.metadane?.nierozstrzygniete;
+  const maNierozstrzygniete =
+    wynik.werdykt_ogolny === 'Brak wystarczających dowodów' ||
+    (wynik.demagog?.twierdzenia || []).some((t) => t.werdykt === 'Brak wystarczających dowodów');
+  if (!maNierozstrzygniete || wynik.status === 'unavailable' || wynik.metadane?.niedostepne) return null;
+
+  const przekazane = Boolean(rejestr && (rejestr.dodane > 0 || rejestr.zaktualizowane > 0));
+  return (
+    <div className="petla-info">
+      <strong>
+        {przekazane
+          ? 'Sprawa przekazana do rejestru redakcyjnego'
+          : 'Rekomendacja weryfikacji eksperckiej'}
+      </strong>
+      <p>
+        {przekazane
+          ? 'Ze względu na brak rozstrzygających źródeł temat został odnotowany w rejestrze spraw do uzupełnienia przez zespół.'
+          : 'Dostępne źródła nie pozwalają jeszcze na pewne rozstrzygnięcie — zalecana jest dodatkowa weryfikacja przez moderatora.'}
+      </p>
     </div>
   );
 }
@@ -177,7 +272,11 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
   const watki = podzielNaWatki(twierdzenia, wynik.model2?.claims);
   const wieleWatkow = watki.length > 1;
   const ostrzezenia = wynik.metadane?.ostrzezenia || [];
+  const flagiBezpieczenstwa = opisyBezpieczenstwa(wynik.metadane?.security_flags);
   const czas = wynik.metadane?.czas_calkowity_ms;
+  const odrzucone = wynik.status === 'rejected' || Boolean(wynik.metadane?.odrzucone_przez_filtr);
+  const niedostepne = wynik.status === 'unavailable' || Boolean(wynik.metadane?.niedostepne);
+  const luki = wynik.research?.notatka?.luki || [];
 
   async function kopiuj() {
     const tekst = wieleWatkow
@@ -192,6 +291,43 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
     }
   }
 
+  // Odrzucenie przez filtr wstępny (brak tezy, pytanie ogólne, polecenie) nie jest werdyktem merytorycznym
+  if (odrzucone) {
+    return (
+      <div className="wynik">
+        <div className="komunikat-doprecyzowania" role="status">
+          <div className="werdykt__etykieta">Wymaga doprecyzowania</div>
+          <div className="komunikat-doprecyzowania__tytul">Nie znaleziono tezy do weryfikacji</div>
+          <p className="komunikat-doprecyzowania__opis">{dem.glowna_odpowiedz}</p>
+        </div>
+
+        <PodgladZgloszenia zgloszenie={zgloszenie} />
+
+        {flagiBezpieczenstwa.length > 0 && (
+          <ul className="alert-bezpieczenstwa">
+            {flagiBezpieczenstwa.map((f) => <li key={f}>{f}</li>)}
+          </ul>
+        )}
+
+        <div className="akcje">
+          {onPopraw && (
+            <button className="przycisk-drugi przycisk-drugi--glowny" onClick={onPopraw}>
+              Popraw treść
+            </button>
+          )}
+          <button className="przycisk-drugi" onClick={onOdNowa}>
+            <Ikona nazwa="odswiez" rozmiar={16} />
+            Nowe sprawdzenie
+          </button>
+        </div>
+        {czas != null && <p className="czas">Sprawdzono w {Math.round(czas / 1000)} s</p>}
+      </div>
+    );
+  }
+
+  const glowneTwierdzenie = watki[0]?.glowne;
+  const glowneZrodla = glowneTwierdzenie?.uzyte_zrodla || dem.glowne_zrodla || [];
+
   return (
     <div className="wynik">
       {wieleWatkow ? (
@@ -204,10 +340,12 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
       ) : (
         <>
           <div className={`werdykt werdykt--${w.klasa}`}>
-            <div className="werdykt__etykieta">Werdykt</div>
+            <div className="werdykt__etykieta">{niedostepne ? 'Informacja techniczna' : 'Werdykt'}</div>
             <div className="werdykt__nazwa">{nazwa}</div>
             <div className="werdykt__opis">{w.opis}</div>
           </div>
+
+          {!niedostepne && <SilaDowodow poziom={glowneTwierdzenie?.sila_dowodow} metoda={glowneTwierdzenie?.metoda} />}
 
           {w.skala && (
             <div className="skala" aria-hidden="true">
@@ -220,30 +358,45 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
             </div>
           )}
 
-          {(watki[0]?.glowne.claim || dem.glowny_kontekst_twierdzenie) ? (
+          {(glowneTwierdzenie?.claim || dem.glowny_kontekst_twierdzenie) ? (
             <div className="twierdzenie-glowne">
               <div className="twierdzenie-glowne__etykieta">Sprawdzane twierdzenie</div>
-              <p>„{watki[0]?.glowne.claim || dem.glowny_kontekst_twierdzenie}”</p>
+              <p>„{glowneTwierdzenie?.claim || dem.glowny_kontekst_twierdzenie}”</p>
             </div>
           ) : (
             <PodgladZgloszenia zgloszenie={zgloszenie} />
           )}
 
-          {(watki[0]?.glowne.uzasadnienie || dem.glowna_odpowiedz) && (
-            <p className="wyjasnienie">{watki[0]?.glowne.uzasadnienie || dem.glowna_odpowiedz}</p>
+          {(glowneTwierdzenie?.uzasadnienie || dem.glowna_odpowiedz) && (
+            <p className="wyjasnienie">{glowneTwierdzenie?.uzasadnienie || dem.glowna_odpowiedz}</p>
           )}
 
-          {(watki[0]?.glowne.uzyte_zrodla || dem.glowne_zrodla || []).length > 0 && (
+          {nazwa === 'Brak wystarczających dowodów' && !niedostepne && luki.length > 0 && (
+            <div className="luki-glowne">
+              <div className="luki-glowne__tytul">Czego nie udało się ustalić</div>
+              <ul>{luki.map((l) => <li key={l}>{l}</li>)}</ul>
+            </div>
+          )}
+
+          {glowneZrodla.length > 0 && (
             <>
               <h2 className="podtytul">Źródła</h2>
               <ul className="zrodla">
-                {(watki[0]?.glowne.uzyte_zrodla || dem.glowne_zrodla).map((z) => <Zrodlo key={z.url || z.title} zrodlo={z} />)}
+                {glowneZrodla.map((z) => <Zrodlo key={z.url || z.title} zrodlo={z} />)}
               </ul>
             </>
           )}
 
+          <DowodyCytaty dowody={glowneTwierdzenie?.ocena_dowodow} />
+
           {watki[0] && <Szczegoly szczegoly={watki[0].szczegoly} />}
         </>
+      )}
+
+      {flagiBezpieczenstwa.length > 0 && (
+        <ul className="alert-bezpieczenstwa">
+          {flagiBezpieczenstwa.map((f) => <li key={f}>{f}</li>)}
+        </ul>
       )}
 
       {ostrzezenia.length > 0 && (
@@ -251,6 +404,8 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
           {ostrzezenia.map((o) => <li key={o}>{o}</li>)}
         </ul>
       )}
+
+      <PetlaInformacji wynik={wynik} />
 
       <NotatkaResearchu research={wynik.research} />
 
