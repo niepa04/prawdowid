@@ -67,8 +67,15 @@ function obrazyZeSchowka(dane) {
     .filter(Boolean);
 }
 
+const MAX_ZNAKOW = 50000;
+const PRZYKLADY = [
+  { etykieta: 'Prezydent Polski', tekst: 'Karol Nawrocki jest prezydentem Polski.' },
+  { etykieta: 'Strajk we Włoszech', tekst: 'We Włoszech zapowiedziano strajk generalny.' },
+  { etykieta: 'Środki z PPK', tekst: 'Rząd planuje wykorzystać pieniądze zgromadzone w PPK do finansowania inwestycji publicznych.' },
+];
+
 // Jedno pole na wszystko: tekst, wklejone linki i zdjęcia (Ctrl+V albo z dysku).
-// Linki są wykrywane w tekście i pokazywane jako kafelki pod polem.
+// Linki są wykrywane w tekście i pokrywane jako kafelki pod polem.
 export default function PoleWejscia({ poczatkowe, onSprawdz }) {
   const [tekst, setTekst] = useState(poczatkowe?.tekst || '');
   const [zdjecia, setZdjecia] = useState(poczatkowe?.zdjecia || []); // { id, nazwa, dataUrl }
@@ -76,8 +83,10 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
   const [przeciaganie, setPrzeciaganie] = useState(false);
   const [podgladZdjecia, setPodgladZdjecia] = useState(null);
   const wyborPliku = useRef(null);
+  const poleTekstu = useRef(null);
 
   const linki = znajdzLinki(tekst);
+  const zaDlugiTekst = tekst.length > MAX_ZNAKOW;
 
   async function dodajZdjecia(pliki) {
     const obrazy = [...pliki].filter((p) => p.type.startsWith('image/'));
@@ -112,9 +121,49 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
     setTekst((t) => t.split(link).join('').replace(/[ \t]{2,}/g, ' '));
   }
 
+  async function wklejPrzyciskiem() {
+    if (!navigator.clipboard) return;
+    try {
+      if (navigator.clipboard.read) {
+        const pozycje = await navigator.clipboard.read();
+        const obrazy = [];
+        let wklejonyTekst = '';
+        for (const poz of pozycje) {
+          const typObrazu = poz.types.find((t) => t.startsWith('image/'));
+          if (typObrazu) {
+            const blob = await poz.getType(typObrazu);
+            obrazy.push(new File([blob], 'ze-schowka.png', { type: typObrazu }));
+          } else if (poz.types.includes('text/plain')) {
+            const blob = await poz.getType('text/plain');
+            wklejonyTekst += await blob.text();
+          }
+        }
+        if (obrazy.length) await dodajZdjecia(obrazy);
+        if (wklejonyTekst) {
+          setTekst((t) => (t.trim() ? `${t}\n${wklejonyTekst}` : wklejonyTekst));
+          setBlad('');
+        }
+        return;
+      }
+      if (navigator.clipboard.readText) {
+        const t = await navigator.clipboard.readText();
+        if (t) {
+          setTekst((prev) => (prev.trim() ? `${prev}\n${t}` : t));
+          setBlad('');
+        }
+      }
+    } catch {
+      setBlad('Przeglądarka nie pozwoliła odczytać schowka – wklej ręcznie (Ctrl+V).');
+    }
+  }
+
   function wyslij() {
     if (!tekst.trim() && !zdjecia.length) {
       setBlad('Wpisz albo wklej informację, którą chcesz sprawdzić.');
+      return;
+    }
+    if (zaDlugiTekst) {
+      setBlad(`Tekst ma ponad ${MAX_ZNAKOW.toLocaleString('pl-PL')} znaków. Skróć go przed wysłaniem.`);
       return;
     }
     onSprawdz({ tekst, linki, zdjecia });
@@ -142,6 +191,7 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
         onDrop={(e) => { e.preventDefault(); setPrzeciaganie(false); dodajZdjecia(e.dataTransfer.files); }}
       >
         <textarea
+          ref={poleTekstu}
           className="pole__tekst"
           placeholder="Wpisz lub wklej tekst, link albo zrzut ekranu"
           value={tekst}
@@ -157,7 +207,7 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
               <span key={link} className="kafelek kafelek--link" title={link}>
                 <Ikona nazwa="link" rozmiar={14} />
                 {skrocLink(link)}
-                <button className="kafelek__usun" onClick={() => usunLink(link)} aria-label={`Usuń link ${link}`}>
+                <button type="button" className="kafelek__usun" onClick={() => usunLink(link)} aria-label={`Usuń link ${link}`}>
                   <Ikona nazwa="x" rozmiar={12} />
                 </button>
               </span>
@@ -186,13 +236,31 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
           </div>
         )}
 
+        {zdjecia.length > 0 && (
+          <p className="pole__ocr-info">
+            Ze zdjęć odczytujemy tekst (OCR). Jeśli na zrzucie brakuje daty lub źródła, dopisz je powyżej.
+          </p>
+        )}
+
         <div className="pole__dol">
-          <button className="przycisk-maly" onClick={() => wyborPliku.current.click()}>
+          <button type="button" className="przycisk-maly" onClick={() => wyborPliku.current.click()}>
             <Ikona nazwa="zdjecie" rozmiar={16} />
             Dodaj zdjęcie
           </button>
-          <span className="pole__podpowiedz">lub wklej (Ctrl+V) albo upuść plik</span>
-          {podsumowanie.length > 0 && <span className="pole__licznik">{podsumowanie.join(' · ')}</span>}
+          {typeof navigator !== 'undefined' && navigator.clipboard && (
+            <button type="button" className="przycisk-maly" onClick={wklejPrzyciskiem}>
+              Wklej ze schowka
+            </button>
+          )}
+          <span className="pole__podpowiedz">lub Ctrl+V, przeciągnij plik</span>
+          {(podsumowanie.length > 0 || tekst.length >= 500) && (
+            <span className={`pole__licznik ${zaDlugiTekst ? 'pole__licznik--blad' : ''}`}>
+              {[
+                ...podsumowanie,
+                tekst.length >= 500 && `${tekst.length.toLocaleString('pl-PL')} / ${MAX_ZNAKOW.toLocaleString('pl-PL')} zn.`,
+              ].filter(Boolean).join(' · ')}
+            </span>
+          )}
           <input
             ref={wyborPliku}
             type="file"
@@ -203,6 +271,26 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
           />
         </div>
       </div>
+
+      {!tekst.trim() && zdjecia.length === 0 && (
+        <div className="przyklady">
+          <span className="przyklady__etykieta">Przykłady:</span>
+          {PRZYKLADY.map((p) => (
+            <button
+              key={p.etykieta}
+              type="button"
+              className="przyklad"
+              onClick={() => {
+                setTekst(p.tekst);
+                setBlad('');
+                poleTekstu.current?.focus();
+              }}
+            >
+              {p.etykieta}
+            </button>
+          ))}
+        </div>
+      )}
 
       {blad && <p className="blad">{blad}</p>}
 
