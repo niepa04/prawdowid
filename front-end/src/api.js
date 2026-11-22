@@ -42,3 +42,13 @@ export function bezpiecznyUrl(url) {
     return null;
   }
 }
+
+export async function pobierzStatus() {
+  try {
+    const odp = await fetch('/api/status');
+    if (!odp.ok) return null;
+    return await odp.json();
+  } catch {
+    return null;
+  }
+}

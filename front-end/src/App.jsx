@@ -3,8 +3,11 @@ import PoleWejscia from './komponenty/PoleWejscia.jsx';
 import Sprawdzanie from './komponenty/Sprawdzanie.jsx';
 import Wynik from './komponenty/Wynik.jsx';
 import Ikona from './komponenty/Ikona.jsx';
+import ZasadyModal from './komponenty/ZasadyModal.jsx';
 import logoZnak from './assets/logo-znak.png';
 import { weryfikuj } from './api.js';
+import { werdykt } from './werdykty.js';
+import { wczytajHistorie, zapiszWHistorii, usunZHistorii, wyczyscHistorie } from './historia.js';
 
 // Trzy etapy strony: wpisywanie -> sprawdzanie -> wynik (albo błąd).
 export default function App() {
@@ -14,7 +17,28 @@ export default function App() {
   const [zgloszenie, setZgloszenie] = useState(null);
   const [wynik, setWynik] = useState(null);
   const [blad, setBlad] = useState('');
+  const [historia, setHistoria] = useState(() => wczytajHistorie());
+  const [otwarteZasady, setOtwarteZasady] = useState(false);
+  const [duzyTekst, setDuzyTekst] = useState(() => {
+    try {
+      return localStorage.getItem('koma_duzy_tekst') === '1';
+    } catch {
+      return false;
+    }
+  });
   const numerZapytania = useRef(0);
+
+  function przelaczRozmiarTekstu() {
+    setDuzyTekst((d) => {
+      const nowy = !d;
+      try {
+        localStorage.setItem('koma_duzy_tekst', nowy ? '1' : '0');
+      } catch {
+        // pomijamy
+      }
+      return nowy;
+    });
+  }
 
   async function sprawdz(dane) {
     const numer = ++numerZapytania.current;
@@ -26,6 +50,7 @@ export default function App() {
     try {
       const odp = await weryfikuj(dane);
       if (numer !== numerZapytania.current) return; // użytkownik w międzyczasie zaczął od nowa
+      setHistoria(zapiszWHistorii({ zgloszenie: dane, wynik: odp }));
       setWynik(odp);
       setEtap('wynik');
     } catch (err) {
@@ -33,6 +58,16 @@ export default function App() {
       setBlad(err.message);
       setEtap('blad');
     }
+  }
+
+  function otworzZHistorii(wpis) {
+    numerZapytania.current++;
+    const odtworzone = { tekst: wpis.tekst || '', zdjecia: [] };
+    setRobocze(odtworzone);
+    setZgloszenie(odtworzone);
+    setWynik(wpis.wynik);
+    setBlad('');
+    setEtap('wynik');
   }
 
   // Powrót do pola z zachowaniem wpisanego tekstu i zdjęć (np. po Anuluj, błędzie lub „Popraw treść”)
@@ -63,7 +98,7 @@ export default function App() {
   }
 
   return (
-    <div className="strona">
+    <div className={`strona ${duzyTekst ? 'duzy-tekst' : ''}`}>
       <header className="gora">
         <div className="szerokosc gora__wnetrze">
           <button className="znak" onClick={odNowa} aria-label="Koma, strona główna">
@@ -72,7 +107,18 @@ export default function App() {
           </button>
           <nav className="gora__menu">
             <a href="#jak-to-dziala" onClick={pokazJakDziala}>Jak to działa</a>
-            <a href="#o-projekcie">O projekcie</a>
+            <button type="button" className="gora__przycisk" onClick={() => setOtwarteZasady(true)}>
+              Źródła i zasady
+            </button>
+            <button
+              type="button"
+              className={`przycisk-tekstu ${duzyTekst ? 'przycisk-tekstu--aktywny' : ''}`}
+              onClick={przelaczRozmiarTekstu}
+              aria-pressed={duzyTekst}
+              title="Powiększ rozmiar tekstu"
+            >
+              A+
+            </button>
           </nav>
         </div>
       </header>
@@ -105,6 +151,49 @@ export default function App() {
           )}
         </section>
 
+        {etap === 'wpisywanie' && historia.length > 0 && (
+          <section className="historia" aria-label="Ostatnie sprawdzenia w tej przeglądarce">
+            <div className="historia__gora">
+              <h2 className="historia__tytul">Ostatnie sprawdzenia</h2>
+              <button
+                type="button"
+                className="historia__wyczysc"
+                onClick={() => setHistoria(wyczyscHistorie())}
+              >
+                Wyczyść sesję
+              </button>
+            </div>
+            <ul className="historia__lista">
+              {historia.map((wpis) => {
+                const opis = wpis.tekst || `${wpis.liczbaZdjec || 1} zdjęcie do sprawdzenia`;
+                const klasa = wpis.werdykt === 'Wymaga doprecyzowania' ? 'brak' : werdykt(wpis.werdykt).klasa;
+                return (
+                  <li key={wpis.id} className="historia__element">
+                    <button
+                      type="button"
+                      className="historia__otworz"
+                      onClick={() => otworzZHistorii(wpis)}
+                    >
+                      <span className="historia__tekst">
+                        {opis.length > 90 ? `${opis.slice(0, 88)}…` : opis}
+                      </span>
+                      <span className={`plakietka plakietka--${klasa}`}>{wpis.werdykt}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="historia__usun"
+                      onClick={() => setHistoria(usunZHistorii(wpis.id))}
+                      aria-label="Usuń z historii"
+                    >
+                      <Ikona nazwa="x" rozmiar={14} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {etap === 'wpisywanie' && (
           <section className="baner" id="jak-to-dziala">
             <h2 className="baner__tytul">Jak działa Koma?</h2>
@@ -132,7 +221,9 @@ export default function App() {
       <footer className="dol" id="o-projekcie">
         <div className="szerokosc">
           <nav className="dol__linki">
-            <a href="#o-projekcie">O projekcie</a>
+            <button type="button" className="dol__przycisk" onClick={() => setOtwarteZasady(true)}>
+              Źródła, zasady i prywatność
+            </button>
             <a href="#jak-to-dziala" onClick={pokazJakDziala}>Jak to działa</a>
           </nav>
           <p className="dol__info">
@@ -140,6 +231,13 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      <ZasadyModal
+        otwarte={otwarteZasady}
+        onZamknij={() => setOtwarteZasady(false)}
+        liczbaHistorii={historia.length}
+        onWyczyscHistorie={() => setHistoria(wyczyscHistorie())}
+      />
     </div>
   );
 }

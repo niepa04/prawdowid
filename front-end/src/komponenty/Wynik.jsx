@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Ikona from './Ikona.jsx';
 import PodgladZgloszenia from './PodgladZgloszenia.jsx';
 import { werdykt, SKALA, silaPodstawy, formatujDate, czyArchiwalna, opisyBezpieczenstwa } from '../werdykty.js';
@@ -265,6 +265,20 @@ function NotatkaResearchu({ research }) {
 export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
   const [pokazOdczyt, setPokazOdczyt] = useState(false);
   const [skopiowano, setSkopiowano] = useState(false);
+  const [czytaGlosno, setCzytaGlosno] = useState(false);
+  const kontenerRef = useRef(null);
+  const obslugaMowy = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+  useEffect(() => {
+    kontenerRef.current?.focus({ preventScroll: true });
+    kontenerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [wynik]);
+
+  useEffect(() => {
+    return () => {
+      if (obslugaMowy) window.speechSynthesis.cancel();
+    };
+  }, [obslugaMowy]);
 
   const dem = wynik.demagog || {};
   const nazwa = dem.werdykt_ogolny || wynik.werdykt_ogolny || 'Brak wystarczających dowodów';
@@ -278,6 +292,8 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
   const odrzucone = wynik.status === 'rejected' || Boolean(wynik.metadane?.odrzucone_przez_filtr);
   const niedostepne = wynik.status === 'unavailable' || Boolean(wynik.metadane?.niedostepne);
   const luki = wynik.research?.notatka?.luki || [];
+  const glowneTwierdzenie = watki[0]?.glowne;
+  const glowneZrodla = glowneTwierdzenie?.uzyte_zrodla || dem.glowne_zrodla || [];
 
   async function kopiuj() {
     const tekst = budujTekstDoKopiowania(wynik, watki);
@@ -290,10 +306,30 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
     }
   }
 
+  function odsluchaj() {
+    if (!obslugaMowy) return;
+    if (czytaGlosno) {
+      window.speechSynthesis.cancel();
+      setCzytaGlosno(false);
+      return;
+    }
+    const tekstMowy = [
+      `${niedostepne ? 'Informacja techniczna' : 'Werdykt'}: ${nazwa}.`,
+      dem.glowna_odpowiedz || glowneTwierdzenie?.uzasadnienie || '',
+    ].filter(Boolean).join(' ');
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(tekstMowy);
+    u.lang = 'pl-PL';
+    u.onend = () => setCzytaGlosno(false);
+    u.onerror = () => setCzytaGlosno(false);
+    setCzytaGlosno(true);
+    window.speechSynthesis.speak(u);
+  }
+
   // Odrzucenie przez filtr wstępny (brak tezy, pytanie ogólne, polecenie) nie jest werdyktem merytorycznym
   if (odrzucone) {
     return (
-      <div className="wynik">
+      <div className="wynik" ref={kontenerRef} tabIndex={-1}>
         <div className="komunikat-doprecyzowania" role="status">
           <div className="werdykt__etykieta">Wymaga doprecyzowania</div>
           <div className="komunikat-doprecyzowania__tytul">Nie znaleziono tezy do weryfikacji</div>
@@ -324,11 +360,8 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
     );
   }
 
-  const glowneTwierdzenie = watki[0]?.glowne;
-  const glowneZrodla = glowneTwierdzenie?.uzyte_zrodla || dem.glowne_zrodla || [];
-
   return (
-    <div className="wynik">
+    <div className="wynik" ref={kontenerRef} tabIndex={-1}>
       {wieleWatkow ? (
         <>
           <Podsumowanie watki={watki} nazwaOgolna={nazwa} />
@@ -429,6 +462,12 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
           <Ikona nazwa={skopiowano ? 'check' : 'kopiuj'} rozmiar={16} />
           {skopiowano ? 'Skopiowano' : 'Kopiuj wynik'}
         </button>
+        {obslugaMowy && (
+          <button className="przycisk-drugi" onClick={odsluchaj} aria-pressed={czytaGlosno}>
+            <Ikona nazwa="glosnik" rozmiar={16} />
+            {czytaGlosno ? 'Zatrzymaj' : 'Odsłuchaj'}
+          </button>
+        )}
         <button className="przycisk-drugi" onClick={() => pobierzRaportJson(wynik, zgloszenie)}>
           <Ikona nazwa="pobierz" rozmiar={16} />
           JSON

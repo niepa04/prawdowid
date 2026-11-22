@@ -14,6 +14,7 @@ const SCIEZKI = {
   lupa: 'M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z M15.5 15.5L20 20',
   tarcza: 'M12 3l7 3v6c0 4-3 7.5-7 9c-4-1.5-7-5-7-9V6z M9 12l2 2 4-4',
   pobierz: 'M12 4v11 M7 11l5 5 5-5 M5 19h14',
+  glosnik: 'M11 5L6 9H3v6h3l5 4z M15.5 8.5a5 5 0 0 1 0 7 M18.5 5.5a9 9 0 0 1 0 13',
 };
 
 export default function Ikona({ nazwa, rozmiar = 18 }) {
