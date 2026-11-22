@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import Ikona from './Ikona.jsx';
+import PodgladObrazu from './PodgladObrazu.jsx';
 import { odmiana } from '../odmiana.js';
 
 const WZOR_LINKU = /https?:\/\/[^\s<>"'`()[\]{}]+/gi;
@@ -73,6 +74,7 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
   const [zdjecia, setZdjecia] = useState(poczatkowe?.zdjecia || []); // { id, nazwa, dataUrl }
   const [blad, setBlad] = useState('');
   const [przeciaganie, setPrzeciaganie] = useState(false);
+  const [podgladZdjecia, setPodgladZdjecia] = useState(null);
   const wyborPliku = useRef(null);
 
   const linki = znajdzLinki(tekst);
@@ -162,9 +164,17 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
             ))}
             {zdjecia.map((z) => (
               <span key={z.id} className="kafelek kafelek--zdjecie" title={z.nazwa}>
-                <img src={z.dataUrl} alt="" className="kafelek__miniatura" />
-                {z.nazwa.length > 20 ? z.nazwa.slice(0, 18) + '…' : z.nazwa}
                 <button
+                  type="button"
+                  className="kafelek__podglad"
+                  onClick={() => setPodgladZdjecia(z)}
+                  aria-label={`Powiększ zdjęcie ${z.nazwa}`}
+                >
+                  <img src={z.dataUrl} alt="" className="kafelek__miniatura" />
+                  {z.nazwa.length > 20 ? z.nazwa.slice(0, 18) + '…' : z.nazwa}
+                </button>
+                <button
+                  type="button"
                   className="kafelek__usun"
                   onClick={() => setZdjecia((lista) => lista.filter((x) => x.id !== z.id))}
                   aria-label={`Usuń zdjęcie ${z.nazwa}`}
@@ -205,6 +215,8 @@ export default function PoleWejscia({ poczatkowe, onSprawdz }) {
         <li><Ikona nazwa="check" rozmiar={16} />Oficjalne źródła i fact-checkerzy</li>
         <li><Ikona nazwa="check" rozmiar={16} />Werdykt z listą źródeł</li>
       </ul>
+
+      <PodgladObrazu obraz={podgladZdjecia} onZamknij={() => setPodgladZdjecia(null)} />
     </div>
   );
 }

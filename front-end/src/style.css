@@ -108,6 +108,13 @@ a:focus-visible, button:focus-visible, textarea:focus-visible {
 }
 .kafelek--link { background: var(--niebieski-jasny); color: var(--niebieski-tekst); }
 .kafelek--zdjecie { background: var(--tlo-drugie); color: var(--tekst-drugi); border: 1px solid var(--ramka); padding-left: 4px; }
+.kafelek--klikalny { cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; padding-right: 10px; }
+.kafelek--klikalny:hover { border-color: var(--niebieski); color: var(--niebieski); }
+.kafelek__podglad {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 0; background: transparent; color: inherit; padding: 0; font: inherit;
+}
+.kafelek__podglad:hover { color: var(--niebieski); }
 .kafelek__miniatura { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
 .kafelek__usun {
   display: inline-flex; border: 0; background: transparent; color: inherit;
@@ -461,3 +468,19 @@ a.cytat__zrodlo:hover { color: var(--niebieski); text-decoration: underline; }
 .notatka__temat { font-weight: 700; }
 .notatka__naglowek { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tekst-slaby); margin-top: 10px; }
 .notatka__przypis { font-size: 13px; font-weight: 700; text-decoration: none; margin-left: 2px; }
+
+/* Okno podglądu obrazu i modale */
+.nakladka {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(16, 19, 23, 0.65);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.okno-obrazu {
+  max-width: min(92vw, 900px); max-height: 90vh;
+  background: var(--tlo); border-radius: 12px;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.okno-obrazu__gora { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 700; color: var(--tekst-drugi); }
+.okno-obrazu__img { max-width: 100%; max-height: calc(90vh - 80px); object-fit: contain; border-radius: 6px; border: 1px solid var(--ramka); }

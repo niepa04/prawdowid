@@ -4,6 +4,7 @@ import PodgladZgloszenia from './PodgladZgloszenia.jsx';
 import { werdykt, SKALA, silaPodstawy, formatujDate, czyArchiwalna, opisyBezpieczenstwa } from '../werdykty.js';
 import { bezpiecznyUrl } from '../api.js';
 import { odmiana } from '../odmiana.js';
+import { budujTekstDoKopiowania, pobierzRaportJson, pobierzRaportCsv } from '../eksport.js';
 
 function Zrodlo({ zrodlo }) {
   const url = bezpiecznyUrl(zrodlo.url);
@@ -279,9 +280,7 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
   const luki = wynik.research?.notatka?.luki || [];
 
   async function kopiuj() {
-    const tekst = wieleWatkow
-      ? [`Koma – werdykt ogólny: ${nazwa}`, ...watki.map((x, i) => `${i + 1}. „${x.glowne.claim}” – ${x.glowne.werdykt}. ${x.glowne.uzasadnienie || ''}`)].join('\n')
-      : `Koma: ${nazwa}\n${dem.glowna_odpowiedz || ''}`;
+    const tekst = budujTekstDoKopiowania(wynik, watki);
     try {
       await navigator.clipboard.writeText(tekst);
       setSkopiowano(true);
@@ -429,6 +428,14 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
         <button className="przycisk-drugi" onClick={kopiuj}>
           <Ikona nazwa={skopiowano ? 'check' : 'kopiuj'} rozmiar={16} />
           {skopiowano ? 'Skopiowano' : 'Kopiuj wynik'}
+        </button>
+        <button className="przycisk-drugi" onClick={() => pobierzRaportJson(wynik, zgloszenie)}>
+          <Ikona nazwa="pobierz" rozmiar={16} />
+          JSON
+        </button>
+        <button className="przycisk-drugi" onClick={() => pobierzRaportCsv(wynik)}>
+          <Ikona nazwa="pobierz" rozmiar={16} />
+          CSV
         </button>
         {onPopraw && (
           <button className="przycisk-drugi" onClick={onPopraw}>

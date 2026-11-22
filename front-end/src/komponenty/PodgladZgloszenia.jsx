@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PodgladObrazu from './PodgladObrazu.jsx';
 
 const LIMIT_PODGLADU = 260;
 
@@ -6,6 +7,7 @@ const LIMIT_PODGLADU = 260;
 // żeby w trakcie sprawdzania lub po wyniku nie znikało z ekranu.
 export default function PodgladZgloszenia({ zgloszenie, etykieta = 'Twoje zgłoszenie' }) {
   const [rozwiniete, setRozwiniete] = useState(false);
+  const [podgladObrazu, setPodgladObrazu] = useState(null);
   if (!zgloszenie) return null;
 
   const tekst = (zgloszenie.tekst || '').trim();
@@ -27,13 +29,20 @@ export default function PodgladZgloszenia({ zgloszenie, etykieta = 'Twoje zgłos
       {zdjecia.length > 0 && (
         <div className="podglad__zdjecia">
           {zdjecia.map((z) => (
-            <span key={z.id} className="kafelek kafelek--zdjecie" title={z.nazwa}>
+            <button
+              key={z.id}
+              type="button"
+              className="kafelek kafelek--zdjecie kafelek--klikalny"
+              title={`Powiększ: ${z.nazwa}`}
+              onClick={() => setPodgladObrazu(z)}
+            >
               <img src={z.dataUrl} alt="" className="kafelek__miniatura" />
               {z.nazwa.length > 20 ? `${z.nazwa.slice(0, 18)}…` : z.nazwa}
-            </span>
+            </button>
           ))}
         </div>
       )}
+      <PodgladObrazu obraz={podgladObrazu} onZamknij={() => setPodgladObrazu(null)} />
     </div>
   );
 }
