@@ -60,3 +60,17 @@ sformułowane inaczej niż zgłoszenie (np. długi cytat polityka). Dlatego:
 
 Jeśli wyszukiwarka nie mogła niczego przeszukać, Koma odpowiada „Nie można teraz sprawdzić”, a nie
 „Brak wystarczających dowodów” – brak wyników przy niedziałającej wyszukiwarce nie jest brakiem dowodów.
+
+## Licencje, kwalifikacja i aktualizacja źródeł
+
+| Typ źródła | Przykłady | Podstawa korzystania |
+|---|---|---|
+| Urzędowe (pierwotne) | gov.pl, KPRM, RCB, MON, GIS, IMGW, Policja | informacja publiczna; dokumenty urzędowe nie są przedmiotem prawa autorskiego (art. 4 pr. aut.), ponowne wykorzystywanie wg ustawy o otwartych danych |
+| Fact-checkerzy (wtórne) | Demagog, Sprawdzam AFP, Konkret24, FakeNews.pl | metadane ClaimReview z Google Fact Check Tools API (warunki Google API); z artykułów tylko krótkie cytaty z podaniem źródła (prawo cytatu, art. 29 pr. aut.) i link |
+
+- Koma nie archiwizuje pełnych treści stron: w odpowiedzi są tylko tytuł, wydawca, data, link i krótki fragment.
+- Przy każdym materiale zapisywana jest data publikacji (`published_at`) i pobrania (`retrieved_at`).
+- Kwalifikacja: strona trafia na listę, gdy spełnia kryteria z `config/zrodla/kryteria_zrodel.json`
+  (lista widoczna też w zakładce „Zaufane źródła” i pod `GET /api/zrodla`).
+- Aktualizacja i wykluczanie: edycja `config/zrodla/zrodla_oficjalne.json` / `fact_checkerzy.json`
+  (pole `enabled`), bez zmian w kodzie. Sama obecność domeny na liście nigdy nie przesądza o werdykcie.

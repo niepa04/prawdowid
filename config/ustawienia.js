@@ -12,6 +12,12 @@ module.exports = {
   // Górny limit czasu jednego sprawdzenia (potem odpowiedź 504)
   MAX_CZAS_SPRAWDZENIA_MS: Number(process.env.KOMA_MAX_CZAS_MS) || 8 * 60 * 1000,
 
+  // Ile sprawdzeń na minutę z jednego adresu IP (ochrona przed nadużyciami; potem odpowiedź 429)
+  LIMIT_ZAPYTAN_NA_MINUTE: Number(process.env.KOMA_LIMIT_NA_MINUTE) || 10,
+  // Dziennik przebiegu sprawdzeń (pytanie, czas, źródła, wynik) i ile dni go trzymamy
+  DZIENNIK_SCIEZKA: process.env.KOMA_DZIENNIK || require('path').join(__dirname, '..', 'backend', 'dane', 'dziennik_sprawdzen.jsonl'),
+  DZIENNIK_RETENCJA_DNI: Number(process.env.KOMA_RETENCJA_DNI) || 30,
+
   // ---- Ekstrakcja treści (Model 1) ----
   // Ile znaków treści artykułu z linku przekazujemy dalej
   MAX_ZNAKOW_ARTYKULU: 8000,

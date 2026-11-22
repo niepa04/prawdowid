@@ -51,3 +51,13 @@ jako niedostępne.
 ## Sekrety
 
 Klucz `GOOGLE_FACTCHECK_API_KEY` jest tylko w pliku `.env` (w `.gitignore`), nigdy w repozytorium.
+
+## Dziennik sprawdzeń, retencja i limit zapytań
+
+- Każde sprawdzenie jest zapisywane w `backend/dane/dziennik_sprawdzen.jsonl` (poza repozytorium):
+  id, czas, kanał, pytanie, wynik, tezy z werdyktami, użyte źródła (tytuł, wydawca, data, link),
+  czas odpowiedzi i zdarzenia bezpieczeństwa (np. wykryte próby prompt injection).
+- Zgłoszenia zablokowane przez filtr danych osobowych są zapisywane **bez treści**.
+- Retencja: wpisy starsze niż `KOMA_RETENCJA_DNI` (domyślnie 30 dni) są usuwane automatycznie.
+- Usunięcie sesji: `DELETE /api/sprawdzenia/:id`.
+- Limit: 10 sprawdzeń na minutę z jednego IP (`KOMA_LIMIT_NA_MINUTE`), potem odpowiedź 429.

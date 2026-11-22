@@ -88,3 +88,12 @@ Błąd ma postać `{ "blad": "komunikat po polsku" }`.
 - `GET /api/alerty/:id` – szczegóły wskazanego klastra tematycznego oraz pogrupowane warianty pytań użytkowników.
 - `POST /api/alerty/:id/status` (lub `PATCH`) – zmiana statusu alertu (`{ "status": "aktywny" | "monitorowany" | "zamkniety" }`).
 - `POST /api/alerty/analizuj` – ręczne uruchomienie przeliczenia kolejki tła i detektora nadaktywności.
+
+## `DELETE /api/sprawdzenia/:id`
+
+Usuwa zapis sprawdzenia (sesji demonstracyjnej) z dziennika. `id` wraca w odpowiedzi `POST /api/weryfikuj`
+jako `id_sprawdzenia`. Odpowiedź: `{ "usunieto": true | false }`.
+
+Limit: `POST /api/weryfikuj` przyjmuje najwyżej `KOMA_LIMIT_NA_MINUTE` (domyślnie 10) sprawdzeń na minutę
+z jednego adresu IP (boty na tym samym serwerze są zwolnione). Po przekroczeniu: `429` z komunikatem.
+Kanał można oznaczyć nagłówkiem `X-Koma-Kanal` (np. `discord`, `messenger`) – trafia do dziennika.

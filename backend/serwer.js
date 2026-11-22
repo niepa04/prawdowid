@@ -22,6 +22,7 @@ const { obslugaBledow, BladWalidacji } = require('./wspolne/zabezpieczenia');
 const { uruchomPipeline } = require('./pipeline');
 const { createSourceRegistry } = require('./wyszukiwarka_dowodow/sourceRegistry');
 const { pobierzDomyslnyMonitoring, STATUSY_ALERTU } = require('./monitoring_promptow');
+const { utworzDziennik, limitZapytan } = require('./wspolne/dziennikSprawdzen');
 
 const { PORT, HOST, MAX_CZAS_SPRAWDZENIA_MS } = require('../config/ustawienia');
 
@@ -172,7 +173,20 @@ function utworzSerwer(opcje = {}) {
   app.patch('/api/alerty/:id/status', jsonMaly, obsluzZmianeStatusu);
 
   // POST /api/weryfikuj - główna weryfikacja (monitoring działa w tle i nie opóźnia odpowiedzi)
-  app.post('/api/weryfikuj', jsonZapytanie, async (req, res) => {
+  const dziennik = opcje.dziennik !== undefined ? opcje.dziennik : utworzDziennik();
+  if (dziennik) {
+    dziennik.wyczyscStare();
+    setInterval(() => dziennik.wyczyscStare(), 24 * 3600 * 1000).unref();
+  }
+
+  // DELETE /api/sprawdzenia/:id - usunięcie zapisu sprawdzenia (sesji demonstracyjnej) z dziennika
+  app.delete('/api/sprawdzenia/:id', (req, res) => {
+    if (!dziennik || !/^[0-9a-f-]{36}$/i.test(req.params.id)) return res.status(404).json({ blad: 'Nie znaleziono.' });
+    res.json({ usunieto: dziennik.usun(req.params.id) });
+  });
+
+  app.post('/api/weryfikuj', limitZapytan(), jsonZapytanie, async (req, res) => {
+    const start = Date.now();
     let stoper;
     const limit = new Promise((_, odrzuc) => {
       stoper = setTimeout(() => {
@@ -193,6 +207,13 @@ function utworzSerwer(opcje = {}) {
       `[KOMA] /api/weryfikuj -> werdykt="${wynik.werdykt_ogolny}" | status=${wynik.status} | tez=${wynik.metadane.liczba_twierdzen} | materiałów=${wynik.metadane.liczba_dowodow} | czasy: M1=${wynik.model1.czas_ms}ms RESEARCH=${wynik.research?.czas_ms ?? 0}ms WERYFIKATOR=${wynik.demagog?.czas_ms ?? 0}ms`
     );
 
+    if (dziennik) {
+      try {
+        wynik.id_sprawdzenia = dziennik.zapisz(req.body, wynik, { kanal: String(req.get('x-koma-kanal') || 'www').slice(0, 20), czasMs: Date.now() - start });
+      } catch (e) {
+        console.error('[KOMA] Nie udało się zapisać dziennika:', e.message);
+      }
+    }
     res.json(wynik);
   });
 
