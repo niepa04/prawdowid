@@ -53,7 +53,7 @@ test('uruchomPipeline przekazuje CAŁY tekst do Research Gatherera i Weryfikator
   assert.equal(wynik.werdykt_ogolny, 'Potwierdzone');
   assert.equal(wynik.demagog.twierdzenia.length, 1);
   assert.equal(wynik.research.materialy.length, 1);
-  assert.deepEqual(wynik.metadane.etapy_ukonczone, ['model1', 'research', 'weryfikator']);
+  assert.deepEqual(wynik.metadane.etapy_ukonczone, ['model1', 'filtr_danych_osobowych', 'research', 'weryfikator']);
 });
 
 test('uruchomPipeline odrzuca puste zapytanie (400) oraz nieobsługiwany film (501)', async () => {

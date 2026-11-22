@@ -21,6 +21,8 @@ export function wczytajHistorie() {
 
 export function zapiszWHistorii({ zgloszenie, wynik }) {
   if (!wynik || wynik.status === 'unavailable' || wynik.metadane?.niedostepne) return wczytajHistorie();
+  // Zgłoszenia z danymi osobowymi NIE trafiają do historii (localStorage zostaje na dysku)
+  if (wynik.metadane?.dane_osobowe) return wczytajHistorie();
   const wpis = {
     id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     czasIso: new Date().toISOString(),

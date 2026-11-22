@@ -359,6 +359,11 @@ a:focus-visible, button:focus-visible, textarea:focus-visible {
 .werdykt--niedostepne { background: var(--niedostepne); color: var(--niedostepne-tekst); }
 .plakietka--niedostepne { background: var(--niedostepne); color: var(--niedostepne-tekst); }
 .karta-watku--niedostepne { border-left-color: #e0a030; }
+/* Zgłoszenie zablokowane przez filtr danych osobowych */
+:root { --zablokowane: #f3eefc; --zablokowane-tekst: #4f2d8f; }
+.werdykt--zablokowane { background: var(--zablokowane); color: var(--zablokowane-tekst); }
+.plakietka--zablokowane { background: var(--zablokowane); color: var(--zablokowane-tekst); }
+.podsumowanie.werdykt--zablokowane { background: var(--zablokowane); color: var(--zablokowane-tekst); }
 .skala { grid-template-columns: repeat(3, 1fr); }
 
 .twierdzenie-glowne { margin-top: 20px; padding: 12px 16px; border-left: 4px solid var(--niebieski); background: var(--niebieski-bardzo-jasny); }
@@ -472,6 +477,8 @@ a.cytat__zrodlo:hover { color: var(--niebieski); text-decoration: underline; }
 }
 .komunikat-doprecyzowania__tytul { font-size: 24px; font-weight: 800; margin-top: 2px; }
 .komunikat-doprecyzowania__opis { margin: 8px 0 0; font-size: 16px; line-height: 1.55; color: var(--tekst-drugi); }
+.komunikat-doprecyzowania--zablokowane { background: var(--zablokowane); border-color: #d9ccf2; color: var(--zablokowane-tekst); }
+.komunikat-doprecyzowania--zablokowane .komunikat-doprecyzowania__opis { color: var(--zablokowane-tekst); }
 
 .alert-bezpieczenstwa {
   margin: 16px 0 0; padding: 10px 16px 10px 32px;

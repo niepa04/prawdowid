@@ -327,12 +327,14 @@ export default function Wynik({ wynik, zgloszenie, onPopraw, onOdNowa }) {
   }
 
   // Odrzucenie przez filtr wstępny (brak tezy, pytanie ogólne, polecenie) nie jest werdyktem merytorycznym
+  // Blokada przez filtr danych osobowych ma własny nagłówek (to nie brak tezy, tylko ochrona prywatności)
+  const daneOsobowe = Boolean(wynik.metadane?.dane_osobowe);
   if (odrzucone) {
     return (
       <div className="wynik" ref={kontenerRef} tabIndex={-1}>
-        <div className="komunikat-doprecyzowania" role="status">
-          <div className="werdykt__etykieta">Wymaga doprecyzowania</div>
-          <div className="komunikat-doprecyzowania__tytul">Nie znaleziono tezy do weryfikacji</div>
+        <div className={`komunikat-doprecyzowania ${daneOsobowe ? 'komunikat-doprecyzowania--zablokowane' : ''}`} role="status">
+          <div className="werdykt__etykieta">{daneOsobowe ? 'Ochrona prywatności' : 'Wymaga doprecyzowania'}</div>
+          <div className="komunikat-doprecyzowania__tytul">{daneOsobowe ? 'Zablokowano: dane osobowe' : 'Nie znaleziono tezy do weryfikacji'}</div>
           <p className="komunikat-doprecyzowania__opis">{dem.glowna_odpowiedz}</p>
         </div>
 

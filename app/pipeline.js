@@ -13,6 +13,37 @@ const { zbierzResearch } = require('./research/researchGatherer');
 const { weryfikujPrawde } = require('./weryfikator/weryfikatorPrawdy');
 const { filtrujZgloszenie } = require('./filtr_wstepny/filtrWstepny');
 const { zarejestrujNierozstrzygniete } = require('./dodatki/nierozstrzygniete');
+const { sprawdzDaneOsobowe } = require('./filtr_danych_osobowych/daneOsobowe');
+
+const ZABLOKOWANE_DANE = 'Zablokowano: dane osobowe';
+
+// Zgłoszenie z danymi osobowymi - nie idzie dalej (do modeli researchu ani wyszukiwarek).
+// wykryte: rodzaje danych (np. "numer PESEL"), bez samych wartości.
+function wynikDaneOsobowe(tekst, czasModel1Ms, wykryte, metoda, startCalkowity) {
+  const co = wykryte.length ? ` Wykryliśmy: ${wykryte.join(', ')}.` : '';
+  const komunikat =
+    `Nie można używać danych osobowych w zapytaniach.${co} ` +
+    'Usuń je i spróbuj ponownie – np. zamiast adresu wpisz samo miasto, a zamiast imienia i nazwiska osoby prywatnej „mieszkaniec”, „sąsiad”, „kobieta”.';
+  return {
+    status: 'rejected',
+    werdykt_ogolny: ZABLOKOWANE_DANE,
+    tekst,
+    model1: { tekst, czas_ms: czasModel1Ms },
+    research: null,
+    demagog: { werdykt_ogolny: ZABLOKOWANE_DANE, glowna_odpowiedz: komunikat, glowne_zrodla: [], twierdzenia: [], czas_ms: 0 },
+    filtr_wstepny: { przepuscic: false, kategoria: 'dane_osobowe', opis: 'dane osobowe', powod: komunikat, metoda, wykryte },
+    metadane: {
+      czas_calkowity_ms: Date.now() - startCalkowity,
+      etapy_ukonczone: ['model1', 'filtr_danych_osobowych'],
+      liczba_twierdzen: 0,
+      liczba_dowodow: 0,
+      ostrzezenia: [],
+      security_flags: [{ type: 'personal_data', reason: wykryte.join(', ') || 'dane osobowe osoby prywatnej' }],
+      odrzucone_przez_filtr: true,
+      dane_osobowe: true,
+    },
+  };
+}
 
 class PipelineError extends Error {
   constructor(wiadomosc, { status = 502, etap = 'pipeline', kod = 'PIPELINE_ERROR', cause = null } = {}) {
@@ -151,10 +182,21 @@ async function uruchomPipeline(body, options = {}) {
     throw new PipelineError('Nie udało się wyodrębnić żadnego tekstu do analizy.', { status: 400, etap: 'model1', kod: 'EMPTY_EXTRACTED_TEXT' });
   }
 
-  // 1b. FILTR WSTĘPNY (w testach z podstawionymi modułami pomijany, chyba że podano filtrImpl)
+  // 1a. FILTR DANYCH OSOBOWYCH (zawsze, bez modelu): PESEL, dokumenty, konta, karty, telefony,
+  // e-maile, adresy zamieszkania. W tekście i na zdjęciach -> blokada; na stronach z linków -> wycięcie.
+  const ochrona = sprawdzDaneOsobowe(tekst);
+  if (ochrona.zablokuj) return wynikDaneOsobowe(ochrona.tekst, czasModel1Ms, ochrona.wykryte, 'reguly', startCalkowity);
+  tekst = ochrona.tekst;
+  etapyUkonczone.push('filtr_danych_osobowych');
+
+  // 1b. FILTR WSTĘPNY (w testach z podstawionymi modułami pomijany, chyba że podano filtrImpl).
+  // Model ocenia też dane osobowe osób prywatnych, których reguły nie wykryją (np. nazwisko + choroba).
   const filtrFn = options.filtrImpl !== undefined ? options.filtrImpl : trybTestowy ? null : (t) => filtrujZgloszenie(t, options.filtr);
   if (filtrFn) {
     const decyzja = await filtrFn(tekst.replace(/=====\s*\[[^\]]+\]\s*=====/g, ' ').trim());
+    if (decyzja && decyzja.przepuscic === false && decyzja.kategoria === 'dane_osobowe') {
+      return wynikDaneOsobowe(tekst, czasModel1Ms, ['dane osobowe osoby prywatnej'], 'model', startCalkowity);
+    }
     if (decyzja && decyzja.przepuscic === false) return wynikOdrzucony(tekst, czasModel1Ms, decyzja, startCalkowity);
     etapyUkonczone.push('filtr_wstepny');
   }

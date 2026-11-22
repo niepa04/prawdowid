@@ -27,6 +27,11 @@ export const WERDYKTY = {
     opis: 'Wyszukiwarka źródeł jest teraz niedostępna. To nie znaczy, że nie ma na ten temat informacji – spróbuj ponownie za kilka minut.',
     skala: null,
   },
+  'Zablokowano: dane osobowe': {
+    klasa: 'zablokowane',
+    opis: 'Nie można używać danych osobowych w zapytaniach (np. PESEL, adres zamieszkania, telefon, dane osób prywatnych). Usuń je i spróbuj ponownie.',
+    skala: null,
+  },
   'Nie podlega weryfikacji': {
     klasa: 'brak',
     opis: 'To opinia, ocena albo pytanie, a nie fakt, który da się sprawdzić.',
@@ -82,6 +87,7 @@ export function czyArchiwalna(wartosc, progDni = 365) {
 const OPISY_FLAG = {
   prompt_injection_detected: 'W treści jednego ze źródeł wykryto próbę manipulacji instrukcjami — została zignorowana.',
   input_command_only: 'Zgłoszenie zawierało wyłącznie polecenie dla systemu zamiast informacji do sprawdzenia.',
+  personal_data: 'Zgłoszenie zawierało dane osobowe – ze względu na ochronę prywatności nie zostało przekazane dalej.',
   redirect_blocked: 'Zablokowano przekierowanie poza zatwierdzoną listę źródeł.',
   search_result_untrusted_host: 'Pominięto niezweryfikowany adres spoza zatwierdzonej listy źródeł.',
 };
