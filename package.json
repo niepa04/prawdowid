@@ -20,6 +20,7 @@
   "scripts": {
     "start": "node app/koma.js",
     "dev": "node --watch app/koma.js",
+    "build": "npm run build --prefix front-end",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:werdykty": "node testy/test_werdyktow.js"
   },

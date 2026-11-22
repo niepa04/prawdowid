@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Koma – ustawienia</title>
+  <link rel="icon" href="ikony/ikona32.png">
+  <link rel="stylesheet" href="styl.css">
+</head>
+<body class="ustawienia">
+  <header class="gora">
+    <img class="gora__logo" src="ikony/logo64.png" alt="">
+    <div>
+      <div class="gora__nazwa">Koma</div>
+      <div class="gora__opis">Ustawienia rozszerzenia</div>
+    </div>
+  </header>
+
+  <main>
+    <label class="etykieta" for="serwer">Adres serwera Koma</label>
+    <input id="serwer" class="pole" type="url" placeholder="http://localhost:3000" spellcheck="false">
+    <p class="podpowiedz">Domyślnie <code>http://localhost:3000</code>. Przez Tailscale wpisz np. <code>http://100.x.y.z:3000</code> – przeglądarka zapyta wtedy o zgodę na połączenie z tym adresem.</p>
+    <div class="akcje">
+      <button id="zapisz" class="przycisk">Zapisz</button>
+      <button id="testuj" class="przycisk przycisk--drugi">Sprawdź połączenie</button>
+    </div>
+    <p id="komunikat" class="status" role="status"></p>
+
+    <h2 class="podtytul">Jak używać</h2>
+    <ol class="instrukcja">
+      <li>Zaznacz tekst na dowolnej stronie.</li>
+      <li>Kliknij zaznaczenie prawym przyciskiem.</li>
+      <li>Wybierz „Weryfikuj w Koma”. Na zdjęciu: „Weryfikuj zdjęcie w Koma”.</li>
+    </ol>
+  </main>
+
+  <script src="wspolne.js"></script>
+  <script src="ustawienia.js"></script>
+</body>
+</html>

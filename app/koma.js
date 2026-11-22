@@ -32,10 +32,34 @@ app.set('trust proxy', 'loopback');
 // Jedno zapytanie może zawierać do 10 zdjęć po 5 MB (w Base64 ~4/3 większe), stąd 70 MB
 const jsonZapytanie = express.json({ limit: '70mb', strict: true });
 
+// Strona Koma (React) zbudowana poleceniem "npm run build" -> front-end/dist.
+// Dzięki temu jeden serwer (Express, port 3000) daje i stronę, i API - na ten adres prowadzi
+// też przycisk "Otwórz Koma w przeglądarce" w rozszerzeniu. Bez zbudowanej strony pod "/"
+// zostaje stary frontend testowy.
+const FOLDER_STRONY = path.join(__dirname, '..', 'front-end', 'dist');
+const stronaZbudowana = require('fs').existsSync(path.join(FOLDER_STRONY, 'index.html'));
+
 // TEST: tymczasowy frontend, usunąć razem z plikiem test.html
-app.get('/', (req, res) => {
+app.get('/test', (req, res) => {
   res.sendFile(path.join(__dirname, 'test.html'));
 });
+
+if (stronaZbudowana) {
+  // index.html bez cache (po "npm run build" przeglądarka od razu dostaje nową wersję);
+  // pliki z assets/ mają hash w nazwie, więc mogą być cache'owane
+  app.use(
+    express.static(FOLDER_STRONY, {
+      index: 'index.html',
+      setHeaders: (res, sciezka) => {
+        res.setHeader('Cache-Control', /[\\/]assets[\\/]/.test(sciezka) ? 'public, max-age=31536000, immutable' : 'no-cache');
+      },
+    })
+  );
+} else {
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'test.html'));
+  });
+}
 
 // Status serwera i podpiętych modułów
 app.get('/api/status', (req, res) => {
@@ -112,6 +136,9 @@ function adresyTailscale() {
 if (require.main === module) {
   const server = app.listen(PORT, HOST, () => {
     console.log(`Serwer KOMA (Model 1 -> Research Gatherer -> Weryfikator Prawdy) działa na http://localhost:${PORT}`);
+    console.log(stronaZbudowana
+      ? 'Strona Koma: zbudowana wersja z front-end/dist (po zmianach we frontendzie: npm run build)'
+      : 'Strona Koma nie jest zbudowana - pod "/" jest strona testowa. Zbuduj ją: npm run build');
     if (HOST === '0.0.0.0') {
       const ts = adresyTailscale();
       if (ts.length) {

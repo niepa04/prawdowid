@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Koma – weryfikacja</title>
+  <link rel="icon" href="ikony/ikona32.png">
+  <link rel="stylesheet" href="styl.css">
+</head>
+<body>
+  <header class="gora">
+    <img class="gora__logo" src="ikony/logo64.png" alt="">
+    <div>
+      <div class="gora__nazwa">Koma</div>
+      <div class="gora__opis">Sprawdź, zanim udostępnisz</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="zgloszenie">
+      <div id="etykieta-zgloszenia" class="etykieta">Twoje zgłoszenie</div>
+      <p id="tekst" class="zgloszenie__tekst"></p>
+      <img id="podglad" class="zgloszenie__zdjecie" alt="Sprawdzane zdjęcie" hidden>
+      <p id="przyciety" class="uwaga" hidden>Zaznaczenie było długie – weryfikujemy pierwsze 10 000 znaków.</p>
+    </section>
+
+    <section id="zgoda" class="zgoda" hidden>
+      <p>Serwer, na którym jest to zdjęcie (<strong id="zgoda-host"></strong>), nie pozwala go pobrać bez zgody. Pozwól rozszerzeniu pobierać zdjęcia z tej strony.</p>
+      <button id="zgoda-przycisk" class="przycisk">Pozwól i weryfikuj</button>
+    </section>
+
+    <section id="ladowanie" class="ladowanie">
+      <div class="kolko" aria-hidden="true"></div>
+      <p id="ladowanie-tekst">Sprawdzamy oficjalne źródła i fact-checkerów…</p>
+      <p class="ladowanie__czas"><span id="sekundy">0</span> s · dokładne sprawdzenie może potrwać do kilku minut</p>
+    </section>
+
+    <section id="blad" class="blad" hidden>
+      <div class="blad__tytul">Nie udało się zweryfikować</div>
+      <p id="blad-tresc"></p>
+      <div class="akcje">
+        <button id="ponow" class="przycisk">Spróbuj ponownie</button>
+        <button id="ustawienia" class="przycisk przycisk--drugi">Ustawienia serwera</button>
+      </div>
+    </section>
+
+    <section id="wynik" hidden aria-live="polite"></section>
+  </main>
+
+  <script src="wspolne.js"></script>
+  <script src="wynik.js"></script>
+</body>
+</html>
