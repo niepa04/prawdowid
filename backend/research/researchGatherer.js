@@ -13,9 +13,10 @@
 
 const wyszukiwarkaDowodow = require('../wyszukiwarka_dowodow/wyszukiwarkaDowodow');
 const { zapytajModelJson } = require('../wspolne/ollama');
+const { kluczUrl } = require('../wspolne/zaufaneDomeny');
 
 // Limity i parametry modeli: config/ustawienia.js i config/modele.js
-const { MAX_PYTAN, MAX_MATERIALOW } = require('../../config/ustawienia');
+const { MAX_PYTAN, MAX_MATERIALOW, NOTATKA_MODELEM } = require('../../config/ustawienia');
 const { ZADANIA } = require('../../config/modele');
 
 const PROMPT_PLAN = require('../../config/prompty/researchPlan');
@@ -110,10 +111,18 @@ async function zbierz(tekst, plan, options) {
 
   const wynikM3 = await (options.model3Impl || wyszukiwarkaDowodow)({ original_text: oryginal, claims: zapytania }, options.model3 || {});
 
+  // Strony podane przez użytkownika nie mogą potwierdzać same siebie - potwierdzeń szukamy gdzie indziej
+  const wykluczone = new Set((options.wykluczUrl || []).map(kluczUrl));
+  let pominieteZgloszenia = 0;
+
   // Scalanie materiałów: bez duplikatów, najpierw oceny fact-checkerów, potem dowody bezpośrednie
   const widziane = new Map();
   for (const c of wynikM3.claims || []) {
     for (const e of c.evidence || []) {
+      if (wykluczone.has(kluczUrl(e.url))) {
+        pominieteZgloszenia++;
+        continue;
+      }
       const klucz = `${e.url}|${e.title}`;
       const ist = widziane.get(klucz);
       if (!ist) widziane.set(klucz, { ...e, _pytania: new Set([c.claim_id]) });
@@ -143,7 +152,14 @@ async function zbierz(tekst, plan, options) {
     }));
 
   const ostrzezenia = [...new Set((wynikM3.claims || []).flatMap((c) => c.warnings || []))];
-  return { materialy, ostrzezenia, status: wynikM3.status, security_flags: wynikM3.security_flags || [], dostepnosc: ocenDostepnosc(wynikM3, ostrzezenia, materialy) };
+  return {
+    materialy,
+    ostrzezenia,
+    status: wynikM3.status,
+    security_flags: wynikM3.security_flags || [],
+    dostepnosc: ocenDostepnosc(wynikM3, ostrzezenia, materialy),
+    pominiete_strony_zgloszenia: pominieteZgloszenia,
+  };
 }
 
 // Czy wyszukiwanie w ogóle działało. Brak materiałów przy NIEDZIAŁAJĄCEJ wyszukiwarce to nie
@@ -162,7 +178,34 @@ function ocenDostepnosc(wynikM3, ostrzezenia, materialy) {
   };
 }
 
+// Notatka złożona z materiałów bez modelu (szybko): ustalenia = fragmenty źródeł z numerami,
+// oceny fact-checkerów przepisane 1:1, luki = pytania badawcze, do których nic nie znaleziono.
+function notatkaZMaterialow(plan, materialy) {
+  const fc = materialy.filter((m) => m.ocena_fact_checkera || m.ocena_twierdzenia_przeciwnego);
+  const oficjalne = materialy.length - fc.length;
+  const pokryte = new Set(materialy.flatMap((m) => m.pytania || []));
+  return {
+    streszczenie:
+      `Zebrano ${materialy.length} ${materialy.length === 1 ? 'materiał' : 'materiałów'}: ` +
+      `${fc.length} ${fc.length === 1 ? 'ocena' : 'ocen'} fact-checkerów i ${oficjalne} z innych zaufanych źródeł.`,
+    ustalenia: materialy.slice(0, 8).map((m) => ({
+      pytanie: '',
+      tresc: `${m.tytul}${m.fragmenty?.[0] ? `: ${skroc(m.fragmenty[0], 260)}` : ''}`,
+      zrodla: [m.nr],
+    })),
+    oceny_fact_checkerow: fc.map((m) => ({
+      twierdzenie: m.oceniane_twierdzenie,
+      ocena: m.ocena_fact_checkera || `${m.ocena_twierdzenia_przeciwnego} (twierdzenie przeciwne)`,
+      wydawca: m.wydawca,
+      zrodlo: m.nr,
+    })),
+    luki: plan.pytania_badawcze.filter((_, i) => !pokryte.has(`p${i + 1}`)).map((p) => p.pytanie),
+    metoda: 'z_materialow',
+  };
+}
+
 async function napiszNotatke(tekst, plan, materialy, options) {
+  if (materialy.length && !NOTATKA_MODELEM && !options.notatkaModelem) return notatkaZMaterialow(plan, materialy);
   if (!materialy.length) {
     return { streszczenie: 'W przeszukanych źródłach nie znaleziono materiałów na ten temat.', ustalenia: [], oceny_fact_checkerow: [], luki: plan.pytania_badawcze.map((p) => p.pytanie), metoda: 'brak_materialow' };
   }
@@ -216,17 +259,24 @@ async function napiszNotatke(tekst, plan, materialy, options) {
  */
 async function zbierzResearch(tekst, options = {}) {
   const start = Date.now();
-  const plan = await zaplanuj(tekst, options);
+  const czasy = {}; // czas każdego kroku (do pomiarów wydajności)
+  // Plan mógł zostać policzony wcześniej, równolegle z filtrem wstępnym (pipeline.js)
+  const plan = options.planGotowy || (await zaplanuj(tekst, options));
+  czasy.plan_ms = Date.now() - start;
   if (plan.czy_opinia && plan.pytania_badawcze.length === 0) {
-    return { plan, materialy: [], notatka: { streszczenie: 'Zgłoszenie jest opinią – nie wymaga researchu faktów.', ustalenia: [], oceny_fact_checkerow: [], luki: [], metoda: 'opinia' }, ostrzezenia: [], status: 'no_results', security_flags: [], czas_ms: Date.now() - start };
+    return { plan, materialy: [], notatka: { streszczenie: 'Zgłoszenie jest opinią – nie wymaga researchu faktów.', ustalenia: [], oceny_fact_checkerow: [], luki: [], metoda: 'opinia' }, ostrzezenia: [], status: 'no_results', security_flags: [], czas_ms: Date.now() - start, czasy };
   }
+  const t1 = Date.now();
   const zebrane = await zbierz(tekst, plan, options);
+  czasy.zbieranie_ms = Date.now() - t1;
   if (zebrane.dostepnosc.awaria) {
     const notatka = { streszczenie: 'Wyszukiwanie źródeł było niedostępne – nie udało się niczego przeszukać.', ustalenia: [], oceny_fact_checkerow: [], luki: plan.pytania_badawcze.map((p) => p.pytanie), metoda: 'awaria_wyszukiwania' };
-    return { plan, ...zebrane, notatka, czas_ms: Date.now() - start };
+    return { plan, ...zebrane, notatka, czas_ms: Date.now() - start, czasy };
   }
+  const t2 = Date.now();
   const notatka = await napiszNotatke(tekst, plan, zebrane.materialy, options);
-  return { plan, ...zebrane, notatka, czas_ms: Date.now() - start };
+  czasy.notatka_ms = Date.now() - t2;
+  return { plan, ...zebrane, notatka, czas_ms: Date.now() - start, czasy };
 }
 
-module.exports = { zbierzResearch, czystyTekst, usunDopisaneImiona };
+module.exports = { zbierzResearch, zaplanuj, czystyTekst, usunDopisaneImiona };

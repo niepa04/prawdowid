@@ -83,6 +83,41 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Lista zaufanych źródeł dla strony "Zaufane źródła" - prosto z config/zrodla/
+// (katalog źródeł, fact-checkerzy, opis Google Fact Check Tools API, wymagania dla nowych źródeł)
+app.get('/api/zrodla', (req, res) => {
+  const { factCheckerzy, kryteria } = require('../config').zrodla;
+  const reg = createSourceRegistry();
+  const oficjalne = reg.enabledSources
+    .filter((s) => s.category !== 'fact_checking')
+    .map((s) => ({
+      id: s.source_id,
+      nazwa: s.name,
+      url: s.url.split('#')[0],
+      domena: s.hostname,
+      kategoria: s.category,
+      kategoria_nazwa: kryteria.kategorie[s.category] || s.category,
+      rola: kryteria.role[s.source_role] || s.source_role || null,
+    }));
+  res.json({
+    wstep: kryteria.wstep,
+    oficjalne,
+    kategorie: kryteria.kategorie,
+    fact_checkerzy: factCheckerzy.zaufani.map((domena) => ({
+      domena,
+      url: `https://${domena}/`,
+      czytamy_artykuly: factCheckerzy.przegladani.includes(domena),
+    })),
+    fact_check_api: {
+      ...kryteria.fact_check_api,
+      jezyk: factCheckerzy.google_fact_check_api.jezyk,
+      // tylko informacja, czy klucz jest ustawiony - nigdy sam klucz
+      aktywne: Boolean(process.env.GOOGLE_FACTCHECK_API_KEY),
+    },
+    wymagania: kryteria.wymagania,
+  });
+});
+
 // POST /api/weryfikuj  body (JSON), każde pole opcjonalne, przynajmniej jedno niepuste:
 // {
 //   "tekst":   "dowolny tekst, może zawierać linki i wklejone zdjęcia data:image/...;base64,...",

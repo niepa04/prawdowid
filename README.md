@@ -1,83 +1,51 @@
-<p align="center">
-  <img src="front-end/src/assets/logo-znak.png" alt="Koma" width="96">
-</p>
-
+<p align="center"><img src="front-end/src/assets/logo-znak.png" alt="Koma" width="88"></p>
 <h1 align="center">Koma</h1>
+<p align="center"><b>K</b>atalog <b>O</b>biektywnych <b>M</b>ateriałów i <b>A</b>naliz · Sprawdź, zanim udostępnisz.<br>Zespół: <b>Drużyna</b> · HackNation 2026 · zadanie MSZ „Prawdowid”</p>
 
-<p align="center"><b>K</b>atalog <b>O</b>biektywnych <b>M</b>ateriałów i <b>A</b>naliz<br>
-Sprawdź, zanim udostępnisz.</p>
+Koma sprawdza tekst, link albo zrzut ekranu w oficjalnych źródłach i u fact-checkerów. Dla każdej tezy zwraca werdykt (Potwierdzone, Fałszywe, Wprowadzające w błąd, Brak wystarczających dowodów, Nie podlega weryfikacji), uzasadnienie, siłę podstawy i cytaty ze źródeł (tytuł, wydawca, data, link). Gdy brak dowodów, uczciwie się wstrzymuje. Awaria nigdy nie jest werdyktem.
 
----
+## Kanały
+- **WWW** (React, responsywna, tryb A+, odsłuch wyniku): tekst, link, zdjęcie (OCR).
+- **Rozszerzenie przeglądarki**: zaznacz tekst lub kliknij obraz prawym przyciskiem → „Weryfikuj w Koma”.
 
-Koma to narzędzie do weryfikacji informacji. Wklejasz tekst, link do artykułu albo zrzut ekranu,
-a Koma sprawdza go w oficjalnych źródłach i u niezależnych fact-checkerów i odpowiada werdyktem
-z uzasadnieniem i listą źródeł.
+Oba kanały korzystają z tego samego API (`POST /api/weryfikuj`).
 
-## Co potrafi
+## Architektura
+`Zgłoszenie → ekstrakcja (tekst, strona, OCR) → filtr danych osobowych → filtr wstępny → research (40 źródeł urzędowych + Google Fact Check API) → Weryfikator Prawdy → werdykt + źródła`
 
-- **Tekst, linki i zrzuty ekranu** – z artykułów pobiera samą treść (bez menu i reklam), ze zdjęć czyta tekst (OCR).
-- **Sprawdzanie w zaufanych źródłach** – 40 źródeł urzędowych (gov.pl, RCB, KPRM, MON, Policja, GIS, IMGW…)
-  oraz oceny fact-checkerów (Demagog, Sprawdzam AFP, Konkret24, FakeNews.pl).
-- **Werdykt dla każdej tezy** – Potwierdzone, Fałszywe, Wprowadzające w błąd, Brak wystarczających dowodów,
-  Nie podlega weryfikacji – z cytatami ze źródeł.
-- **Uczciwe „nie wiem”** – bez dowodów Koma mówi, że ich nie ma, zamiast zgadywać; przy awarii źródeł mówi,
-  że teraz nie da się sprawdzić.
-- **Ochrona prywatności** – zgłoszenia z danymi osobowymi (PESEL, adres, telefon, dane osób prywatnych)
-  są blokowane, zanim trafią do analizy.
-- **Rozszerzenie przeglądarki** – zaznacz tekst albo kliknij obrazek prawym przyciskiem → „Weryfikuj w Koma”.
+- Model rozumie pytanie i porównuje materiały, a reguły w kodzie pilnują werdyktu: cytat musi być w materiale, a liczby muszą się zgadzać.
+- Modele lokalne w Ollamie: `qwen3.5:9b` (analiza), `glm-ocr` (OCR). Model i dostawcę zmienia się w `config/` bez zmian w kodzie.
+- Źródła, kryteria i prompty są jawne w [`config/`](config). Lista źródeł jest też na stronie, w zakładce „Zaufane źródła”.
 
-## Jak to działa
-
-```mermaid
-flowchart LR
-    A[Zgłoszenie] --> B[Ekstrakcja treści<br/>tekst, OCR, strony]
-    B --> C[Ochrona danych<br/>osobowych]
-    C --> D[Filtr wstępny]
-    D --> E[Research Gatherer<br/>+ wyszukiwarka dowodów]
-    E --> F[Weryfikator Prawdy]
-    F --> G[Werdykt + źródła]
-```
-
-Szczegóły: [docs/architektura.md](docs/architektura.md).
-
-## Szybki start
-
-Wymagania: Node.js 22+, serwer [Ollama](https://ollama.com) z modelami `qwen3.5:9b` i `glm-ocr:latest`.
-
+## Uruchomienie
+Wymagania: Node.js 22+, Ollama z powyższymi modelami.
 ```bash
-npm install
-npm install --prefix front-end
-cp .env.example .env      # klucz Google Fact Check Tools API, adres Ollamy
-npm run build             # buduje stronę
-npm start                 # http://localhost:3000
+npm install && npm install --prefix front-end
+cp .env.example .env   # klucz Google Fact Check (opcjonalny), adres Ollamy
+npm run build && npm start   # http://localhost:3000
 ```
+Rozszerzenie: `chrome://extensions` → „Załaduj rozpakowane” → folder `extension/`.
 
-Więcej: [docs/uruchomienie.md](docs/uruchomienie.md).
+## Testy
+`npm test` uruchamia testy jednostkowe. `node tests/test_werdyktow.js [--szybki]` liczy mierniki z sekcji 6: 100 zgłoszeń (20 tematów × 5 sformułowań), prompt injection, spójność kanałów. Raporty trafiają do `tests/raporty/`.
 
-## Struktura projektu
+Ostatnia próba (szybka): czas mediana **26,5 s**, pokrycie cytowań **100%**, odporność **100%**, end-to-end **100%**, spójność kanałów **100%**, **2,9** wywołania LLM i ok. **6,3 tys.** tokenów na zapytanie.
 
-| Folder | Zawartość |
+## Koszt i ruch (szacunek)
+- **1 000 zapytań ≈ 10–40 zł**: ok. 8 h pracy GPU przy ~30 s na zapytanie (prąd własnego GPU albo wynajem chmurowego). Google Fact Check API jest bezpłatne w limicie, użytkownik nic nie płaci.
+- **Duży ruch:** jedna instancja Ollamy obsłuży ok. 100–150 zapytań/h, bo zapytania czekają w kolejce. Przy większym ruchu rośnie czas, a po 8 min użytkownik dostaje komunikat o niedostępności (nie werdykt). Skalowanie to kolejne instancje Ollamy, cache wyników i limit zapytań na IP.
+
+## Ryzyka
+| Ryzyko | Ograniczenie |
 |---|---|
-| [`backend/`](backend) | serwer (Express) i kroki sprawdzania |
-| [`config/`](config) | modele AI, prompty, zaufane źródła i domeny, limity |
-| [`front-end/`](front-end) | strona Koma (React + Vite) |
-| [`extension/`](extension) | rozszerzenie przeglądarki |
-| [`tests/`](tests) | testy jakości werdyktów |
-| [`docs/`](docs) | dokumentacja |
+| Halucynacje | werdykt tylko z cytatem obecnym w materiale, reguły w kodzie |
+| Stronniczość źródeł | wiele typów źródeł, jawne kryteria, domena nie przesądza o werdykcie |
+| Prywatność | PESEL, adresy itp. blokowane przed analizą; modele lokalne |
+| Prompt injection | prompt systemowy oddzielony od danych, skan stron, walidacja odpowiedzi |
+| Dostępność | jasny komunikat o awarii, brak klucza ≠ wynik |
+| Nadużycia | filtr spamu i tematów; limit zapytań planowany |
+
+Znane ograniczenia: brak wyszukiwania odwrotnego obrazu i nagrań; trafność zależy od pokrycia źródeł.
 
 ## Dokumentacja
-
-- [Architektura](docs/architektura.md)
-- [Konfiguracja](docs/konfiguracja.md)
-- [Werdykty i źródła](docs/werdykty_i_zrodla.md)
-- [API](docs/api.md)
-- [Bezpieczeństwo i prywatność](docs/bezpieczenstwo.md)
-- [Testy](docs/testy.md)
-
-## Zespół
-
-_Do uzupełnienia._
-
-## Licencja
-
-_Do uzupełnienia._
+[Architektura](docs/architektura.md) · [Uruchomienie](docs/uruchomienie.md) · [Konfiguracja](docs/konfiguracja.md) · [Werdykty i źródła](docs/werdykty_i_zrodla.md) · [API](docs/api.md) · [Bezpieczeństwo](docs/bezpieczenstwo.md) · [Testy](docs/testy.md)

@@ -187,3 +187,12 @@ span.zrodlo__tytul { color: var(--tekst); text-decoration: none; }
 .status--blad { color: var(--blad); }
 .instrukcja { padding-left: 20px; }
 code { background: var(--tlo-drugie); padding: 1px 4px; border-radius: 4px; font-size: 13px; }
+
+/* Link ze zgłoszenia prowadzi do zaufanego źródła */
+.zrodlo-zgloszenia {
+  margin: 0 0 12px; padding: 10px 14px;
+  border: 1px solid var(--prawda-mocny); border-radius: var(--promien);
+  background: var(--prawda); color: var(--prawda-tekst);
+}
+.zrodlo-zgloszenia__tytul { font-weight: 800; font-size: 14px; }
+.zrodlo-zgloszenia__opis { margin: 2px 0 0; font-size: 13px; line-height: 1.5; }

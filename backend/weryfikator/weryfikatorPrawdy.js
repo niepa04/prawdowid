@@ -8,6 +8,7 @@
 // ocena fact-checkera na temat rozstrzyga (z obsługą twierdzeń przeciwnych), "Brak" bez źródeł.
 
 const { zapytajModelJson } = require('../wspolne/ollama');
+const { dopasowanieOceny, oczyscMeta } = require('../wyszukiwarka_dowodow/providers/factCheckProvider');
 
 const WERDYKTY = ['Potwierdzone', 'Fałszywe', 'Wprowadzające w błąd', 'Brak wystarczających dowodów', 'Nie podlega weryfikacji'];
 const ROZSTRZYGAJACE = ['Potwierdzone', 'Fałszywe', 'Wprowadzające w błąd'];
@@ -107,8 +108,20 @@ function sprawdzTeze(t, materialy) {
   }
   if (werdykt === 'Nie podlega weryfikacji') werdykt = BRAK; // teza faktowa nie może być "nie do sprawdzenia"
 
-  // 1. Ocena fact-checkera na temat rozstrzyga (także dla twierdzenia przeciwnego)
-  const fc = naTemat.find((d) => d.material.ocena_fact_checkera) || naTemat.find((d) => d.material.ocena_twierdzenia_przeciwnego);
+  // 1. Ocena fact-checkera rozstrzyga (także dla twierdzenia przeciwnego), ale tylko gdy dotyczy TEJ tezy:
+  //    model uznał ją za dowód rozstrzygający albo oceniane twierdzenie pasuje do cytatu tezy
+  //    (ta sama miara co w wyszukiwarce, ze zgodnością liczb: "wzrost o 91% w 8 lat" nie rozstrzyga "3% w listopadzie").
+  const liczby = (s) => (String(s || '').match(/\d+(?:[.,]\d+)?/g) || []);
+  const liczbyZgodne = (d) => {
+    const ocenione = new Set(liczby(`${d.material.oceniane_twierdzenie || ''} ${d.material.tytul || ''}`));
+    return liczby(t.cytat).every((n) => ocenione.has(n));
+  };
+  const pasujeDoTezy = (d) =>
+    liczbyZgodne(d) && (d.stanowisko !== 'nie_rozstrzyga' ||
+    dopasowanieOceny([oczyscMeta(t.cytat)], { text: d.material.oceniane_twierdzenie || '', claimReview: [{ title: d.material.tytul }] }) >= 1);
+  const fc =
+    naTemat.find((d) => d.material.ocena_fact_checkera && pasujeDoTezy(d)) ||
+    naTemat.find((d) => d.material.ocena_twierdzenia_przeciwnego && pasujeDoTezy(d));
   if (fc) {
     const przeciwne = !fc.material.ocena_fact_checkera;
     const ocena = przeciwne ? fc.material.ocena_twierdzenia_przeciwnego : fc.material.ocena_fact_checkera;

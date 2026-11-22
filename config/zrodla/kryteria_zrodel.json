@@ -1,0 +1,69 @@
+{
+  "opis": "Teksty strony 'Zaufane źródła': nazwy kategorii i ról źródeł, opis Google Fact Check Tools API oraz wymagania, które musi spełnić strona, żeby trafić na listę zaufanych źródeł Komy.",
+  "wstep": "Koma szuka dowodów wyłącznie w źródłach, które zostały wcześniej sprawdzone i dodane do katalogu. Nie przeszukuje całego internetu – dzięki temu nie mamy od razu wszystkich informacji, ale te, które pokazujemy, pochodzą ze zweryfikowanych miejsc.",
+  "kategorie": {
+    "government_admin": "Administracja rządowa",
+    "warnings_crisis": "Ostrzeżenia i zarządzanie kryzysowe",
+    "public_safety_services": "Służby i bezpieczeństwo publiczne",
+    "health_nuclear": "Zdrowie i bezpieczeństwo radiacyjne",
+    "environment_weather_hydro": "Środowisko, pogoda i hydrologia",
+    "cybersecurity": "Cyberbezpieczeństwo",
+    "transport_infrastructure": "Transport i infrastruktura",
+    "maritime_waterways": "Morze, wody i ratownictwo",
+    "travel_foreign_affairs": "Podróże i sprawy zagraniczne",
+    "fact_checking": "Fact-checking"
+  },
+  "role": {
+    "warnings": "ostrzeżenia",
+    "news_alerts": "komunikaty",
+    "live_measurements": "pomiary na żywo",
+    "informational": "informacje",
+    "guide": "poradnik",
+    "contact_info": "kontakt",
+    "fact_checks": "oceny fact-checkerów"
+  },
+  "fact_check_api": {
+    "nazwa": "Google Fact Check Tools API",
+    "opis": "Publiczna baza ocen publikowanych przez organizacje fact-checkingowe na całym świecie (w standardowym formacie ClaimReview). Koma przeszukuje w niej oceny w języku polskim – wieloma kombinacjami słów kluczowych, odmian i synonimów – i bierze pod uwagę wyłącznie oceny zaufanych fact-checkerów z listy powyżej.",
+    "zasady": [
+      "Ocena liczy się tylko wtedy, gdy dotyczy tej samej tezy: zgadza się z ocenianym cytatem, z tytułem artykułu fact-checkera albo pokrywa większość słów zgłoszenia.",
+      "Liczby i daty muszą się zgadzać – ocena twierdzenia o roku 2035 nie rozstrzyga pytania o rok 2025.",
+      "Gdy fact-checker ocenił twierdzenie przeciwne („X nie jest prawdą”), ocena jest odpowiednio odwracana.",
+      "Artykuły Demagoga są dodatkowo otwierane i czytane, a cytaty z nich trafiają do uzasadnienia werdyktu."
+    ]
+  },
+  "wymagania": [
+    {
+      "tytul": "Źródło pierwotne albo uznany weryfikator",
+      "opis": "Instytucja publiczna publikująca komunikaty we własnym imieniu (urząd, ministerstwo, służba, agencja państwowa) albo niezależna organizacja fact-checkingowa będąca sygnatariuszem IFCN lub EFCSN."
+    },
+    {
+      "tytul": "Oficjalna, bezpieczna domena",
+      "opis": "Domena gov.pl albo domena instytucji potwierdzona w oficjalnych rejestrach (np. BIP), dostępna przez HTTPS z poprawnym certyfikatem."
+    },
+    {
+      "tytul": "Jawna odpowiedzialność za treść",
+      "opis": "Wskazany wydawca, dane kontaktowe i zasady publikacji; u fact-checkerów – jawna metodologia i polityka korekt."
+    },
+    {
+      "tytul": "Datowane publikacje",
+      "opis": "Każdy komunikat ma datę publikacji (najlepiej też aktualizacji), żeby dało się odróżnić informacje bieżące od archiwalnych."
+    },
+    {
+      "tytul": "Dostępność bez obchodzenia zabezpieczeń",
+      "opis": "Treść dostępna bez logowania i bez omijania zabezpieczeń antybotowych (Koma ich nie omija). Mile widziane RSS, API lub zwykły HTML."
+    },
+    {
+      "tytul": "Brak treści partyjnych i sponsorowanych",
+      "opis": "Źródło nie jest kanałem partii, kampanii wyborczej ani reklamodawcy i nie publikuje treści sponsorowanych jako informacji."
+    },
+    {
+      "tytul": "Dopasowanie do tematów zgłoszeń",
+      "opis": "Źródło regularnie publikuje informacje w obszarach, o które pytają użytkownicy (bezpieczeństwo, zdrowie, pogoda, transport, administracja…)."
+    },
+    {
+      "tytul": "Audyt przed dodaniem",
+      "opis": "Administrator sprawdza dostępność (status HTTP, RSS/API, zabezpieczenia, certyfikat), dopisuje źródło do katalogu i mapy tematów, a testy potwierdzają, że wyszukiwarka dowodów poprawnie z niego korzysta."
+    }
+  ]
+}

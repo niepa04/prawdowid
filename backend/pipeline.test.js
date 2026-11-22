@@ -146,10 +146,14 @@ test('Weryfikator: dowody nie na temat nie mogą rozstrzygać (pytanie jest prio
 });
 
 test('Weryfikator: ocena fact-checkera na temat rozstrzyga, także dla twierdzenia przeciwnego', () => {
-  const fc = M(1, { ocena_fact_checkera: 'Fałsz', wydawca: 'Demagog' });
-  assert.equal(sprawdzTeze({ typ: 'fakt', werdykt: 'Brak wystarczających dowodów', dowody: [{ nr: 1, na_temat: true, stanowisko: 'nie_rozstrzyga' }] }, [fc]).werdykt, 'Fałszywe');
+  // ocena dotyczy tej samej tezy -> rozstrzyga, nawet gdy model nie wskazał stanowiska
+  const fc = M(1, { ocena_fact_checkera: 'Fałsz', wydawca: 'Demagog', oceniane_twierdzenie: 'Szczepionki powodują autyzm u dzieci' });
+  assert.equal(sprawdzTeze({ typ: 'fakt', cytat: 'Szczepionki powodują autyzm u dzieci.', werdykt: 'Brak wystarczających dowodów', dowody: [{ nr: 1, na_temat: true, stanowisko: 'nie_rozstrzyga' }] }, [fc]).werdykt, 'Fałszywe');
+  // ocena innego twierdzenia (inne liczby, inny okres) bez stanowiska modelu -> nie rozstrzyga
+  const inna = M(2, { ocena_fact_checkera: 'Prawda', wydawca: 'Demagog', oceniane_twierdzenie: 'Cena masła wzrosła o 91 proc. w ciągu 8 lat', tytul: 'Według NBP ceny nie rosną. Ile wzrosły przez ostatnie 8 lat?' });
+  assert.equal(sprawdzTeze({ typ: 'fakt', cytat: 'Ceny masła w Polsce wzrosły w listopadzie o 3 procent', werdykt: 'Brak wystarczających dowodów', dowody: [{ nr: 2, na_temat: true, stanowisko: 'nie_rozstrzyga' }] }, [inna]).werdykt, 'Brak wystarczających dowodów');
   const przeciwne = M(1, { ocena_twierdzenia_przeciwnego: 'Fałsz', oceniane_twierdzenie: 'Szczepionki powodują autyzm', wydawca: 'Demagog' });
-  assert.equal(sprawdzTeze({ typ: 'fakt', werdykt: 'Fałszywe', dowody: [{ nr: 1, na_temat: true, stanowisko: 'zaprzecza' }] }, [przeciwne]).werdykt, 'Potwierdzone');
+  assert.equal(sprawdzTeze({ typ: 'fakt', cytat: 'Szczepionki nie powodują autyzmu.', werdykt: 'Fałszywe', dowody: [{ nr: 1, na_temat: true, stanowisko: 'nie_rozstrzyga' }] }, [przeciwne]).werdykt, 'Potwierdzone');
   // ocena fact-checkera uznana za nie na temat nie rozstrzyga
   assert.equal(sprawdzTeze({ typ: 'fakt', werdykt: 'Brak wystarczających dowodów', dowody: [{ nr: 1, na_temat: false }] }, [fc]).werdykt, 'Brak wystarczających dowodów');
 });

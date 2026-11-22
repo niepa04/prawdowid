@@ -224,6 +224,14 @@ function pokazWynik(w, serwer) {
     return;
   }
 
+  // Link prowadzi do zaufanego źródła: informacja, ale werdykt opiera się na INNYCH stronach
+  if (w.zrodlo_zgloszenia?.zaufane?.length) {
+    const ramka = el('div', 'zrodlo-zgloszenia');
+    ramka.setAttribute('role', 'note');
+    ramka.append(el('div', 'zrodlo-zgloszenia__tytul', '✓ Zweryfikowane źródło'), el('p', 'zrodlo-zgloszenia__opis', w.zrodlo_zgloszenia.komunikat || ''));
+    sekcja.append(ramka);
+  }
+
   const werdykt = el('div', `werdykt werdykt--${KLASY[nazwa] || 'brak'}`);
   werdykt.append(el('div', 'etykieta', tezy.length > 1 ? 'Werdykt ogólny' : 'Werdykt'), el('div', 'werdykt__nazwa', nazwa), el('p', 'werdykt__opis', OPISY[nazwa] || ''));
   sekcja.append(werdykt);

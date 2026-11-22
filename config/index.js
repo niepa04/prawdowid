@@ -18,6 +18,8 @@ module.exports = {
     sciezkaZrodelOficjalnych: path.join(__dirname, 'zrodla', 'zrodla_oficjalne.json'),
     sciezkaMapyTematow: path.join(__dirname, 'zrodla', 'mapa_tematow.json'),
     factCheckerzy: require('./zrodla/fact_checkerzy.json'),
+    // teksty strony "Zaufane źródła": kategorie, opis Fact Check API, wymagania dla nowych źródeł
+    kryteria: require('./zrodla/kryteria_zrodel.json'),
   },
   prompty: {
     ocr: require('./prompty/ocr'),

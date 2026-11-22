@@ -20,6 +20,9 @@ module.exports = {
   MAX_PYTAN: 3,
   // Ile materiałów najwyżej trafia do notatki i weryfikatora
   MAX_MATERIALOW: 14,
+  // Notatka z researchu pisana przez model (wolniej: +10-40 s) zamiast składania jej z materiałów.
+  // Weryfikator i tak czyta pełne materiały, więc domyślnie wyłączone (KOMA_NOTATKA_MODELEM=1 włącza).
+  NOTATKA_MODELEM: process.env.KOMA_NOTATKA_MODELEM === '1',
 
   // ---- Weryfikator Prawdy ----
   // Ile tez z jednego zgłoszenia najwyżej oceniamy

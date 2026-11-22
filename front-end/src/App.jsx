@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import ZaufaneZrodla from './komponenty/ZaufaneZrodla.jsx';
 import PoleWejscia from './komponenty/PoleWejscia.jsx';
 import Sprawdzanie from './komponenty/Sprawdzanie.jsx';
 import Wynik from './komponenty/Wynik.jsx';
@@ -27,6 +28,20 @@ export default function App() {
     }
   });
   const numerZapytania = useRef(0);
+
+  // Podstrona "Zaufane źródła" pod adresem #zrodla (można ją podlinkować)
+  const [naZrodlach, setNaZrodlach] = useState(() => window.location.hash === '#zrodla');
+  useEffect(() => {
+    const zmiana = () => {
+      setNaZrodlach(window.location.hash === '#zrodla');
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener('hashchange', zmiana);
+    return () => window.removeEventListener('hashchange', zmiana);
+  }, []);
+  function zamknijZrodla() {
+    window.location.hash = '';
+  }
 
   function przelaczRozmiarTekstu() {
     setDuzyTekst((d) => {
@@ -107,6 +122,7 @@ export default function App() {
           </button>
           <nav className="gora__menu">
             <a href="#jak-to-dziala" onClick={pokazJakDziala}>Jak to działa</a>
+            <a href="#zrodla" aria-current={naZrodlach ? 'page' : undefined}>Zaufane źródła</a>
             <button type="button" className="gora__przycisk" onClick={() => setOtwarteZasady(true)}>
               Źródła i zasady
             </button>
@@ -123,6 +139,11 @@ export default function App() {
         </div>
       </header>
 
+      {naZrodlach ? (
+        <main className="szerokosc tresc">
+          <ZaufaneZrodla onWroc={zamknijZrodla} />
+        </main>
+      ) : (
       <main className="szerokosc tresc">
         <div className="naglowek">
           <h1 className="logo">Koma</h1>
@@ -217,6 +238,7 @@ export default function App() {
           </section>
         )}
       </main>
+      )}
 
       <footer className="dol" id="o-projekcie">
         <div className="szerokosc">
@@ -225,6 +247,7 @@ export default function App() {
               Źródła, zasady i prywatność
             </button>
             <a href="#jak-to-dziala" onClick={pokazJakDziala}>Jak to działa</a>
+            <a href="#zrodla">Zaufane źródła</a>
           </nav>
           <p className="dol__info">
             Koma pomaga szybko sprawdzić informacje z sieci na podstawie oficjalnych źródeł i baz fact-checkingowych.
