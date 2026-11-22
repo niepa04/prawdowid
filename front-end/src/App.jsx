@@ -3,6 +3,7 @@ import PoleWejscia from './komponenty/PoleWejscia.jsx';
 import Sprawdzanie from './komponenty/Sprawdzanie.jsx';
 import Wynik from './komponenty/Wynik.jsx';
 import Ikona from './komponenty/Ikona.jsx';
+import logoZnak from './assets/logo-znak.png';
 import { weryfikuj } from './api.js';
 
 // Trzy etapy strony: wpisywanie -> sprawdzanie -> wynik (albo błąd).
@@ -44,7 +45,7 @@ export default function App() {
       <header className="gora">
         <div className="szerokosc gora__wnetrze">
           <button className="znak" onClick={odNowa} aria-label="Koma, strona główna">
-            <span className="znak__kwadrat">K</span>
+            <img src={logoZnak} alt="" className="znak__logo" />
             <span className="znak__nazwa">Koma</span>
           </button>
           <nav className="gora__menu">
