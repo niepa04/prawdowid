@@ -50,8 +50,9 @@ test('Fact-check: ocena "Brakujący kontekst" od Demagoga daje dowód przeciw z 
   const { wynik, zapytania } = await zPodstawionymFetch(() => odpowiedzApi([PPK]), () =>
     zbierzOcenyFactCheckerow(claim, [claim], getConfig({ factCheckApiKey: 'test' }), Date.now())
   );
-  assert.equal(zapytania.length, 1);
-  assert.ok(zapytania[0].includes('languageCode=pl'));
+  // Wiele kombinacji słów (szukamy wszystkimi, nie tylko do pierwszego trafienia)
+  assert.ok(zapytania.length >= 1);
+  assert.ok(zapytania.every((z) => z.includes('languageCode=pl')));
   assert.equal(wynik.evidence.length, 1);
   assert.equal(wynik.evidence[0].source_id, 'FACTCHECK');
   assert.equal(wynik.evidence[0].relation_to_claim, 'contradicting');
